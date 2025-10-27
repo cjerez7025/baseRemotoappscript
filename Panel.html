@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base target="_top">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            padding: 0;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 100%;
+            width: 100%;
+            padding: 15px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px 15px;
+            margin: -15px -15px 15px -15px;
+            color: white;
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+        
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        
+        .header .ejecutivo-name {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 6px;
+            display: inline-block;
+        }
+        
+        .date-selector {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .date-selector label {
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .date-selector input {
+            padding: 8px 12px;
+            border: 2px solid white;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .date-selector input:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .date-selector input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .date-selector input::-webkit-calendar-picker-indicator {
+            filter: brightness(0) invert(1);
+            cursor: pointer;
+        }
+        
+        .fecha-info {
+            font-size: 12px;
+            color: rgba(255,255,255,0.9);
+            margin-top: 8px;
+        }
+        
+        .refresh-btn {
+            background: rgba(255,255,255,0.3);
+            border: 2px solid white;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .refresh-btn:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.05);
+        }
+        
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .auto-refresh-indicator {
+            font-size: 11px;
+            color: rgba(255,255,255,0.8);
+            margin-top: 8px;
+        }
+        
+        .celebration-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s;
+        }
+        
+        .celebration-content {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 280px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            animation: bounceIn 0.5s;
+            position: relative;
+        }
+        
+        .celebration-emoji {
+            font-size: 50px;
+            animation: pulse 1s infinite;
+            margin-bottom: 10px;
+        }
+        
+        .celebration-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .celebration-message {
+            font-size: 14px;
+            color: white;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+        
+        .celebration-stats {
+            background: rgba(255,255,255,0.2);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .celebration-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .celebration-close {
+            background: white;
+            color: #f5576c;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .celebration-close:hover {
+            transform: scale(1.05);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #ffd700;
+            animation: confettiFall 2.5s linear infinite;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes bounceIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        
+        @keyframes confettiFall {
+            0% { 
+                top: -10%; 
+                transform: translateX(0) rotateZ(0deg);
+                opacity: 1;
+            }
+            100% { 
+                top: 110%; 
+                transform: translateX(100px) rotateZ(720deg);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        .success-glow {
+            animation: successGlow 2s infinite;
+        }
+        
+        @keyframes successGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(40, 167, 69, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(40, 167, 69, 0.8); }
+        }
+        
+        .speedometer.meta-cumplida {
+            border: 3px solid #28a745;
+        }
+        
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .card {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .card-title {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .card-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        .card-subtitle {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .estados-section {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        
+        .estados-title {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .estados-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .estado-card {
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+            border: 2px solid;
+        }
+        
+        .estado-card:hover {
+            transform: scale(1.02);
+        }
+        
+        .estado-cerrado {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+        }
+        
+        .estado-interesado {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        
+        .estado-gestion {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        
+        .estado-numero {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .estado-info {
+            flex: 1;
+            margin-left: 12px;
+        }
+        
+        .estado-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .estado-porcentaje {
+            font-size: 11px;
+            margin-top: 2px;
+            opacity: 0.8;
+        }
+        
+        .speedometer {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .speedometer-title {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .gauge {
+            position: relative;
+            width: 100%;
+            max-width: 240px;
+            height: 120px;
+            margin: 0 auto 15px;
+        }
+        
+        .gauge-bg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .gauge-needle {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 3px;
+            height: 100px;
+            background: #333;
+            transform-origin: bottom center;
+            transition: transform 1s ease;
+            border-radius: 2px;
+        }
+        
+        .gauge-center {
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            background: #333;
+            border-radius: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .gauge-label {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 5px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .stat-item .label {
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .stat-item .value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 16px;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px;
+            font-size: 14px;
+        }
+        
+        .info-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">
+        <div>⏳ Cargando datos...</div>
+    </div>
+    
+    <div id="panel-content" style="display: none;">
+        <div class="container">
+            <div class="header">
+                <h1>📞 Panel de Control</h1>
+                
+                <div class="header-info">
+                    <div>
+                        <div class="ejecutivo-name" id="ejecutivo-name">-</div>
+                        <div class="fecha-info">
+                            📅 <span id="fecha-actual">-</span>
+                            <span class="info-badge" id="badge-hoy"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="date-selector">
+                        <label for="date-picker">Selecciona una fecha:</label>
+                        <input type="date" id="date-picker" onchange="cambiarFecha()">
+                    </div>
+                </div>
+                
+                <button class="refresh-btn" onclick="actualizarManual()">
+                    🔄 Actualizar
+                </button>
+                <div class="auto-refresh-indicator">
+                    ⚡ Auto-actualización cada 10s
+                </div>
+                <div class="auto-refresh-indicator" id="ultima-actualizacion" style="font-size: 10px; margin-top: 4px;">
+                    Actualizado hace 0s
+                </div>
+            </div>
+            
+            <div class="dashboard">
+                <div class="card">
+                    <div class="card-title">Llamadas</div>
+                    <div class="card-value" id="llamadas-dia">0</div>
+                    <div class="card-subtitle">Meta diaria: <span id="meta-diaria">70</span> llamadas</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-dia" style="width: 0%;"></div>
+                    </div>
+                    <span class="badge badge-danger" id="badge-dia">0% Completado</span>
+                </div>
+                
+                <div class="card">
+                    <div class="card-title">Pendientes</div>
+                    <div class="card-value" style="color: #ff6b6b;" id="pendientes-dia">70</div>
+                    <div class="card-subtitle">Llamadas restantes</div>
+                    <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                        ⏰ Tiempo restante: <span id="horas-restantes">-</span> horas
+                    </div>
+                </div>
+            </div>
+            
+            <div class="estados-section">
+                <div class="estados-title">
+                    📊 Estado de las Llamadas (<span id="total-llamadas">0</span> llamadas)
+                </div>
+                <div class="estados-grid">
+                    <div class="estado-card estado-cerrado">
+                        <div class="estado-numero" style="color: #17a2b8;" id="estado-cerrado-num">0</div>
+                        <div class="estado-info">
+                            <div class="estado-label" style="color: #17a2b8;">Cerrado</div>
+                            <div class="estado-porcentaje" id="estado-cerrado-porc">0% del día</div>
+                        </div>
+                    </div>
+                    
+                    <div class="estado-card estado-interesado">
+                        <div class="estado-numero" style="color: #28a745;" id="estado-interesado-num">0</div>
+                        <div class="estado-info">
+                            <div class="estado-label" style="color: #28a745;">Interesados</div>
+                            <div class="estado-porcentaje" id="estado-interesado-porc">0% del día</div>
+                        </div>
+                    </div>
+                    
+                    <div class="estado-card estado-gestion">
+                        <div class="estado-numero" style="color: #ffc107;" id="estado-gestion-num">0</div>
+                        <div class="estado-info">
+                            <div class="estado-label" style="color: #d39e00;">En Gestión</div>
+                            <div class="estado-porcentaje" id="estado-gestion-porc">0% del día</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="speedometer">
+                <div class="speedometer-title">🎯 Velocímetro - <span id="fecha-velocimetro">-</span></div>
+                <div class="gauge">
+                    <svg class="gauge-bg" viewBox="0 0 280 140">
+                        <defs>
+                            <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#ffd93d;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#6bcf7f;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M 20 140 A 120 120 0 0 1 260 140" 
+                              fill="none" 
+                              stroke="url(#gradient1)" 
+                              stroke-width="25" 
+                              stroke-linecap="round"/>
+                        <text x="30" y="130" font-size="14" fill="#666">0</text>
+                        <text x="125" y="30" font-size="14" fill="#666">35</text>
+                        <text x="235" y="130" font-size="14" fill="#666">70</text>
+                    </svg>
+                    <div class="gauge-needle" id="gauge-needle" style="transform: translateX(-50%) rotate(-90deg);"></div>
+                    <div class="gauge-center"></div>
+                </div>
+                <div class="gauge-label" id="gauge-porcentaje">0%</div>
+                <p style="color: #666; margin-top: 10px;">Progreso</p>
+                
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="label">Realizadas</div>
+                        <div class="value" id="stat-realizadas">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Meta Diaria</div>
+                        <div class="value" id="stat-meta">70</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Faltan</div>
+                        <div class="value" style="color: #ff6b6b;" id="stat-faltan">70</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; text-align: left;">
+                    <strong style="color: #333; font-size: 13px;">⏰ Estado:</strong>
+                    <p style="color: #666; margin-top: 5px; font-size: 12px;" id="mensaje-estado">
+                        Cargando información...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="error-content" style="display: none;"></div>
+    
+    <!-- Overlay de celebración -->
+    <div id="celebration-overlay" class="celebration-overlay">
+        <div class="celebration-content">
+            <div class="celebration-emoji">🏆</div>
+            <div class="celebration-title">¡INCREÍBLE!</div>
+            <div class="celebration-message">
+                ¡Has completado tu meta del día!<br>
+                <strong>¡Eres un/a CAMPEÓN/A!</strong>
+            </div>
+            <div class="celebration-stats">
+                <div style="color: white; font-size: 13px; margin-bottom: 3px;">Has realizado</div>
+                <div class="celebration-number" id="celebration-number">70</div>
+                <div style="color: white; font-size: 13px; margin-top: 3px;">llamadas exitosas 📞</div>
+            </div>
+            <div style="color: white; font-size: 11px; margin-bottom: 15px; font-style: italic;">
+                "El éxito es la suma de pequeños esfuerzos"
+            </div>
+            <button class="celebration-close" onclick="cerrarCelebracion()">
+                ✨ Continuar ✨
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        var hojaActual = '';
+        var intervaloVerificacion;
+        var intervaloActualizacion;
+        var ultimaActualizacion = new Date();
+        var metasCumplidasMostradas = {};
+        var ultimasLlamadas = 0;
+        var fechaActualSeleccionada = null;
+        
+        // Cargar datos al iniciar
+        cargarDatosInicial();
+        
+        // Verificar cambios de hoja cada 1 segundo
+        intervaloVerificacion = setInterval(verificarCambioHoja, 1000);
+        
+        // Actualizar datos automáticamente cada 10 segundos (solo si es hoy)
+        intervaloActualizacion = setInterval(actualizarAutomatico, 10000);
+        
+        function inicializarDatePicker() {
+            // Usar la fecha local del cliente, no UTC
+            var hoy = new Date();
+            var año = hoy.getFullYear();
+            var mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            var dia = String(hoy.getDate()).padStart(2, '0');
+            var fechaFormato = año + '-' + mes + '-' + dia;
+            
+            document.getElementById('date-picker').value = fechaFormato;
+            fechaActualSeleccionada = fechaFormato;
+            
+            console.log('Fecha inicializada:', fechaFormato);
+        }
+        
+        function cargarDatosInicial() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('panel-content').style.display = 'none';
+            document.getElementById('error-content').style.display = 'none';
+            
+            inicializarDatePicker();
+            
+            google.script.run
+                .withSuccessHandler(cargarDatos)
+                .withFailureHandler(mostrarError)
+                .obtenerDatosEjecutivo('');
+        }
+        
+        function cambiarFecha() {
+            var fechaSeleccionada = document.getElementById('date-picker').value;
+            
+            console.log('Fecha seleccionada desde input:', fechaSeleccionada);
+            
+            if (fechaSeleccionada) {
+                fechaActualSeleccionada = fechaSeleccionada;
+                
+                var panelContent = document.getElementById('panel-content');
+                panelContent.style.opacity = '0.6';
+                
+                try {
+                    console.log('Enviando fecha al servidor:', fechaSeleccionada);
+                    google.script.run
+                        .withSuccessHandler(function(datos) {
+                            console.log('Datos recibidos:', datos);
+                            cargarDatos(datos);
+                            panelContent.style.opacity = '1';
+                            ultimaActualizacion = new Date();
+                            actualizarIndicadorTiempo();
+                        })
+                        .withFailureHandler(function(error) {
+                            console.error('Error:', error);
+                            mostrarError(error);
+                            panelContent.style.opacity = '1';
+                        })
+                        .obtenerDatosEjecutivo(fechaSeleccionada);
+                } catch (e) {
+                    console.error('Exception:', e);
+                    panelContent.style.opacity = '1';
+                }
+            }
+        }
+        
+        function actualizarAutomatico() {
+            // Usar la fecha local del cliente
+            var hoy = new Date();
+            var año = hoy.getFullYear();
+            var mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            var dia = String(hoy.getDate()).padStart(2, '0');
+            var fechaHoy = año + '-' + mes + '-' + dia;
+            
+            if (fechaActualSeleccionada === fechaHoy) {
+                try {
+                    google.script.run
+                        .withSuccessHandler(function(datos) {
+                            if (!datos.error) {
+                                cargarDatos(datos);
+                                ultimaActualizacion = new Date();
+                                actualizarIndicadorTiempo();
+                            }
+                        })
+                        .withFailureHandler(function(error) {
+                            console.error('Error en actualización automática:', error);
+                        })
+                        .obtenerDatosEjecutivo(fechaActualSeleccionada);
+                } catch (e) {
+                    console.error('Exception en actualización automática:', e);
+                }
+            }
+        }
+        
+        function actualizarManual() {
+            var btn = event.target;
+            var textoOriginal = btn.textContent;
+            btn.textContent = '⏳ Actualizando...';
+            btn.disabled = true;
+            
+            try {
+                google.script.run
+                    .withSuccessHandler(function(datos) {
+                        cargarDatos(datos);
+                        ultimaActualizacion = new Date();
+                        actualizarIndicadorTiempo();
+                        btn.textContent = '✅ Actualizado';
+                        btn.disabled = false;
+                        setTimeout(function() {
+                            btn.textContent = textoOriginal;
+                        }, 1500);
+                    })
+                    .withFailureHandler(function(error) {
+                        console.error('Error:', error);
+                        mostrarError(error);
+                        btn.textContent = '❌ Error';
+                        btn.disabled = false;
+                        setTimeout(function() {
+                            btn.textContent = textoOriginal;
+                        }, 1500);
+                    })
+                    .obtenerDatosEjecutivo(fechaActualSeleccionada);
+            } catch (e) {
+                console.error('Exception:', e);
+                btn.textContent = '❌ Error';
+                btn.disabled = false;
+                setTimeout(function() {
+                    btn.textContent = textoOriginal;
+                }, 1500);
+            }
+        }
+        
+        function verificarCambioHoja() {
+            try {
+                google.script.run
+                    .withSuccessHandler(function(datos) {
+                        if (datos.error) return;
+                        
+                        if (hojaActual !== '' && hojaActual !== datos.nombreEjecutivo) {
+                            var ejecutivoName = document.getElementById('ejecutivo-name');
+                            ejecutivoName.style.transition = 'all 0.3s';
+                            ejecutivoName.style.opacity = '0.5';
+                            
+                            setTimeout(function() {
+                                hojaActual = datos.nombreEjecutivo;
+                                inicializarDatePicker();
+                                cargarDatos(datos);
+                                ejecutivoName.style.opacity = '1';
+                                ultimaActualizacion = new Date();
+                                actualizarIndicadorTiempo();
+                                
+                                if (datos.llamadasDia >= 70 && !metasCumplidasMostradas[datos.nombreEjecutivo]) {
+                                    setTimeout(function() {
+                                        mostrarCelebracion(datos.llamadasDia);
+                                        metasCumplidasMostradas[datos.nombreEjecutivo] = true;
+                                    }, 500);
+                                }
+                            }, 300);
+                        } else if (hojaActual === '') {
+                            hojaActual = datos.nombreEjecutivo;
+                        }
+                    })
+                    .withFailureHandler(function(error) {
+                        console.error('Error en verificación:', error);
+                    })
+                    .obtenerDatosEjecutivo(fechaActualSeleccionada);
+            } catch (e) {
+                console.error('Exception en verificación:', e);
+            }
+        }
+        
+        function actualizarIndicadorTiempo() {
+            var indicador = document.getElementById('ultima-actualizacion');
+            if (indicador) {
+                var ahora = new Date();
+                var segundos = Math.floor((ahora - ultimaActualizacion) / 1000);
+                indicador.textContent = 'Actualizado hace ' + segundos + 's';
+            }
+        }
+        
+        setInterval(actualizarIndicadorTiempo, 1000);
+        
+        function cargarDatos(datos) {
+            document.getElementById('loading').style.display = 'none';
+            
+            if (datos.error) {
+                document.getElementById('error-content').innerHTML = 
+                    '<div class="error">❌ ' + datos.mensaje + '</div>';
+                document.getElementById('error-content').style.display = 'block';
+                document.getElementById('panel-content').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('panel-content').style.display = 'block';
+            document.getElementById('error-content').style.display = 'none';
+            hojaActual = datos.nombreEjecutivo;
+            
+            // Detectar cambio de meta cumplida solo si es hoy
+            if (datos.esHoy && datos.llamadasDia >= 70 && ultimasLlamadas < 70 && !metasCumplidasMostradas[datos.nombreEjecutivo]) {
+                mostrarCelebracion(datos.llamadasDia);
+                metasCumplidasMostradas[datos.nombreEjecutivo] = true;
+            }
+            
+            if (datos.llamadasDia < 70) {
+                metasCumplidasMostradas[datos.nombreEjecutivo] = false;
+            }
+            
+            ultimasLlamadas = datos.llamadasDia;
+            
+            var ejecutivoName = document.getElementById('ejecutivo-name');
+            ejecutivoName.textContent = datos.nombreEjecutivo;
+            ejecutivoName.style.transition = 'all 0.3s';
+            
+            // Badge de "Hoy" si es la fecha actual
+            var badgeHoy = document.getElementById('badge-hoy');
+            
+            // Verificar si es hoy usando la fecha local del cliente
+            var hoy = new Date();
+            var año = hoy.getFullYear();
+            var mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            var dia = String(hoy.getDate()).padStart(2, '0');
+            var fechaHoy = año + '-' + mes + '-' + dia;
+            
+            var esHoyCliente = (datos.fechaISO === fechaHoy);
+            badgeHoy.textContent = esHoyCliente ? '📍 Hoy' : '';
+            
+            document.getElementById('fecha-actual').textContent = datos.fechaFormateada;
+            document.getElementById('fecha-velocimetro').textContent = datos.fechaFormateada.split(',')[0];
+            
+            animarValor('llamadas-dia', datos.llamadasDia);
+            animarValor('pendientes-dia', datos.pendientesDia);
+            
+            document.getElementById('meta-diaria').textContent = datos.metaDiaria;
+            document.getElementById('progress-dia').style.width = datos.porcentajeDia + '%';
+            
+            if (datos.esHoy) {
+                document.getElementById('horas-restantes').textContent = datos.horasRestantes;
+            } else {
+                document.getElementById('horas-restantes').textContent = '-';
+            }
+            
+            var badge = document.getElementById('badge-dia');
+            badge.className = 'badge ' + datos.badgeClass;
+            badge.textContent = datos.badgeText;
+            
+            document.getElementById('total-llamadas').textContent = datos.llamadasDia;
+            animarValor('estado-cerrado-num', datos.estadosCerrado);
+            animarValor('estado-interesado-num', datos.estadosInteresado);
+            animarValor('estado-gestion-num', datos.estadosEnGestion);
+            
+            document.getElementById('estado-cerrado-porc').textContent = datos.porcCerrado + '% del día';
+            document.getElementById('estado-interesado-porc').textContent = datos.porcInteresado + '% del día';
+            document.getElementById('estado-gestion-porc').textContent = datos.porcEnGestion + '% del día';
+            
+            var speedometer = document.querySelector('.speedometer');
+            if (datos.porcentajeDia >= 100) {
+                speedometer.classList.add('meta-cumplida', 'success-glow');
+            } else {
+                speedometer.classList.remove('meta-cumplida', 'success-glow');
+            }
+            
+            document.getElementById('gauge-needle').style.transform = 
+                'translateX(-50%) rotate(' + datos.rotacionAguja + 'deg)';
+            document.getElementById('gauge-porcentaje').textContent = datos.porcentajeDia + '%';
+            
+            animarValor('stat-realizadas', datos.llamadasDia);
+            document.getElementById('stat-meta').textContent = datos.metaDiaria;
+            animarValor('stat-faltan', datos.pendientesDia);
+            
+            var mensaje = '';
+            if (datos.porcentajeDia >= 100) {
+                var mensajesMetaCumplida = [
+                    'Llevas ' + datos.llamadasDia + ' llamadas. ¡META CUMPLIDA! 🎉',
+                    'Excelente día: ' + datos.llamadasDia + ' llamadas realizadas. ¡Eres INCREÍBLE! ⭐',
+                    'Objetivo alcanzado: ' + datos.llamadasDia + ' llamadas. ¡FELICIDADES! 🏆'
+                ];
+                mensaje = mensajesMetaCumplida[Math.floor(Math.random() * mensajesMetaCumplida.length)];
+            } else {
+                mensaje = 'Llevas ' + datos.llamadasDia + ' de ' + datos.metaDiaria + 
+                         ' llamadas. Aún quedan ' + datos.pendientesDia + ' llamadas para completar el día.';
+                
+                if (datos.porcentajeDia >= 70) {
+                    mensaje += ' ¡Excelente ritmo! 💪';
+                } else if (datos.porcentajeDia >= 40) {
+                    mensaje += ' ¡Buen avance! 👍';
+                } else {
+                    mensaje += ' ¡A darle con todo! 🚀';
+                }
+            }
+            
+            document.getElementById('mensaje-estado').textContent = mensaje;
+        }
+        
+        function mostrarCelebracion(numLlamadas) {
+            var overlay = document.getElementById('celebration-overlay');
+            document.getElementById('celebration-number').textContent = numLlamadas;
+            overlay.style.display = 'flex';
+            
+            crearConfetti();
+            
+            setTimeout(function() {
+                cerrarCelebracion();
+            }, 7000);
+        }
+        
+        function crearConfetti() {
+            var colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f093fb', '#f5576c'];
+            var overlay = document.getElementById('celebration-overlay');
+            
+            for (var i = 0; i < 30; i++) {
+                var confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = Math.random() * 2 + 's';
+                confetti.style.animationDuration = (Math.random() * 2 + 1.5) + 's';
+                overlay.appendChild(confetti);
+            }
+        }
+        
+        function cerrarCelebracion() {
+            var overlay = document.getElementById('celebration-overlay');
+            overlay.style.animation = 'fadeOut 0.4s';
+            setTimeout(function() {
+                overlay.style.display = 'none';
+                overlay.style.animation = '';
+                var confettis = overlay.querySelectorAll('.confetti');
+                confettis.forEach(function(c) { c.remove(); });
+            }, 400);
+        }
+        
+        function animarValor(elementId, nuevoValor) {
+            var elemento = document.getElementById(elementId);
+            if (elemento) {
+                var valorActual = parseInt(elemento.textContent) || 0;
+                if (valorActual !== nuevoValor) {
+                    elemento.style.transition = 'all 0.3s';
+                    elemento.style.transform = 'scale(1.2)';
+                    elemento.style.color = '#28a745';
+                    elemento.textContent = nuevoValor;
+                    setTimeout(function() {
+                        elemento.style.transform = 'scale(1)';
+                        elemento.style.color = '';
+                    }, 300);
+                }
+            }
+        }
+        
+        function mostrarError(error) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-content').innerHTML = 
+                '<div class="error">❌ Error al cargar los datos: ' + error.message + '</div>';
+            document.getElementById('error-content').style.display = 'block';
+            document.getElementById('panel-content').style.display = 'none';
+        }
+        
+        window.addEventListener('beforeunload', function() {
+            if (intervaloVerificacion) {
+                clearInterval(intervaloVerificacion);
+            }
+            if (intervaloActualizacion) {
+                clearInterval(intervaloActualizacion);
+            }
+        });
+    </script>
+</body>
+</html>
