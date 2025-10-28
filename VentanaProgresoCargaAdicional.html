@@ -114,131 +114,102 @@
       display: flex;
       justify-content: space-between;
       margin-bottom: 10px;
-      font-size: 14px;
+      font-size: 13px;
       color: #4a5568;
-      font-weight: 600;
     }
 
     .progress-bar-container {
-      width: 100%;
-      height: 30px;
       background: #e2e8f0;
-      border-radius: 15px;
+      border-radius: 10px;
+      height: 30px;
       overflow: hidden;
-      position: relative;
       box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+      position: relative;
     }
 
     .progress-bar {
+      background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
       height: 100%;
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-      border-radius: 15px;
-      transition: width 0.5s ease-out;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .progress-bar::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      right: 0;
-      background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255,255,255,0.3),
-        transparent
-      );
-      animation: shimmer 2s infinite;
-    }
-
-    @keyframes shimmer {
-      0% {
-        transform: translateX(-100%);
-      }
-      100% {
-        transform: translateX(100%);
-      }
+      border-radius: 10px;
+      transition: width 0.5s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(72, 187, 120, 0.4);
     }
 
     .progress-text {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
       color: white;
+      font-size: 13px;
       font-weight: 700;
-      font-size: 14px;
       text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     }
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: 1fr 1fr;
       gap: 12px;
       margin-bottom: 20px;
     }
 
     .stat-card {
       background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-      padding: 16px;
+      padding: 15px;
       border-radius: 12px;
       text-align: center;
       border: 2px solid #e2e8f0;
-      transition: all 0.3s ease;
+      transition: transform 0.2s ease;
     }
 
     .stat-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     .stat-label {
-      font-size: 11px;
+      font-size: 12px;
       color: #718096;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
       margin-bottom: 6px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
     .stat-value {
       font-size: 24px;
-      font-weight: 700;
       color: #2d3748;
+      font-weight: 700;
     }
 
     .timeline {
-      margin-top: 20px;
-      padding-top: 18px;
-      border-top: 2px solid #e2e8f0;
+      background: #f7fafc;
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
     }
 
     .timeline-title {
-      font-size: 14px;
-      font-weight: 700;
-      color: #2d3748;
-      margin-bottom: 16px;
+      font-size: 12px;
+      color: #4a5568;
+      margin-bottom: 12px;
+      font-weight: 600;
       text-align: center;
       text-transform: uppercase;
-      letter-spacing: 1px;
     }
 
     .timeline-steps {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       position: relative;
-      padding: 0 10px;
     }
 
     .timeline-steps::before {
       content: '';
       position: absolute;
-      top: 20px;
-      left: 10px;
-      right: 10px;
+      top: 18px;
+      left: 10%;
+      right: 10%;
       height: 3px;
       background: #e2e8f0;
       z-index: 0;
@@ -250,41 +221,33 @@
       align-items: center;
       position: relative;
       z-index: 1;
-      flex: 1;
     }
 
     .timeline-dot {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: #e2e8f0;
+      background: white;
+      border: 3px solid #e2e8f0;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 16px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       transition: all 0.3s ease;
-      border: 3px solid white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .timeline-dot.active {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      transform: scale(1.2);
-      animation: pulse-dot 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 0 rgba(102, 126, 234, 0.7);
-      }
-      50% {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 10px rgba(102, 126, 234, 0);
-      }
+      border-color: #667eea;
+      transform: scale(1.15);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     }
 
     .timeline-dot.completed {
       background: #48bb78;
+      border-color: #48bb78;
+      color: white;
     }
 
     .timeline-label {
@@ -292,41 +255,36 @@
       color: #718096;
       text-align: center;
       font-weight: 600;
-      max-width: 80px;
-    }
-
-    .loading-spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255,255,255,0.3);
-      border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
 
     .completion-message {
       display: none;
       text-align: center;
-      padding: 25px;
+      padding: 20px;
       background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
       color: white;
       border-radius: 15px;
-      margin-top: 16px;
-      animation: slideIn 0.5s ease-out;
+      animation: fadeIn 0.5s ease-in;
     }
 
     .completion-message.show {
       display: block;
     }
 
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
     .completion-icon {
-      font-size: 56px;
-      margin-bottom: 12px;
+      font-size: 48px;
+      margin-bottom: 10px;
     }
 
     .completion-title {
@@ -369,7 +327,7 @@
     <div class="stats">
       <div class="stat-card">
         <div class="stat-label">Etapa</div>
-        <div class="stat-value" id="statEtapa">0/11</div>
+        <div class="stat-value" id="statEtapa">0/13</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Progreso</div>
@@ -397,7 +355,11 @@
           <div class="timeline-label">Reportes</div>
         </div>
         <div class="timeline-step">
-          <div class="timeline-dot" id="dot5">✅</div>
+          <div class="timeline-dot" id="dot5">🗂️</div>
+          <div class="timeline-label">Ordenar</div>
+        </div>
+        <div class="timeline-step">
+          <div class="timeline-dot" id="dot6">✅</div>
           <div class="timeline-label">Completar</div>
         </div>
       </div>
@@ -405,89 +367,129 @@
 
     <div class="completion-message" id="completionMessage">
       <div class="completion-icon">🎉</div>
-      <div class="completion-title">¡Proceso Completado!</div>
-      <div class="completion-text">Los datos han sido distribuidos exitosamente</div>
+      <div class="completion-title">¡Completado!</div>
+      <div class="completion-text">Datos cargados y hojas ordenadas exitosamente</div>
     </div>
   </div>
 
   <script>
+    var ultimoProgreso = null;
+    var contadorErrores = 0;
+    var maxErrores = 10;
+
     function actualizarProgreso() {
       google.script.run
         .withSuccessHandler(function(progreso) {
           if (!progreso) return;
 
-          // Actualizar etapa actual
-          document.getElementById('etapaIcono').textContent = progreso.icono;
-          document.getElementById('etapaNombre').textContent = progreso.nombreEtapa;
-          document.getElementById('etapaDescripcion').textContent = progreso.mensaje;
+          contadorErrores = 0;
+
+          if (ultimoProgreso && 
+              progreso.etapa === ultimoProgreso.etapa && 
+              progreso.porcentaje === ultimoProgreso.porcentaje) {
+            setTimeout(actualizarProgreso, 1000);
+            return;
+          }
+
+          ultimoProgreso = progreso;
+
+          // Actualizar icono y nombre de etapa
+          document.getElementById('etapaIcono').textContent = progreso.icono || '⚡';
+          document.getElementById('etapaNombre').textContent = progreso.nombreEtapa || 'Procesando';
+          document.getElementById('etapaDescripcion').textContent = progreso.mensaje || 'En proceso...';
 
           // Actualizar barra de progreso
           document.getElementById('progressBar').style.width = progreso.porcentaje + '%';
           document.getElementById('progressText').textContent = progreso.porcentaje + '%';
-          document.getElementById('progresoTexto').textContent = progreso.mensaje;
-          document.getElementById('progresoItems').textContent = progreso.actual + '/' + progreso.total;
+          document.getElementById('progresoTexto').textContent = progreso.mensaje || '';
+          
+          if (progreso.total > 0) {
+            document.getElementById('progresoItems').textContent = 
+              progreso.actual + '/' + progreso.total;
+          } else {
+            document.getElementById('progresoItems').textContent = '';
+          }
 
           // Actualizar stats
-          document.getElementById('statEtapa').textContent = progreso.etapa + '/11';
+          document.getElementById('statEtapa').textContent = progreso.etapa + '/13';
           document.getElementById('statPorcentaje').textContent = progreso.porcentaje + '%';
 
           // Actualizar timeline
           actualizarTimeline(progreso.etapa);
 
           // Mostrar mensaje de completado
-          if (progreso.porcentaje === 100) {
+          if (progreso.porcentaje >= 100) {
             setTimeout(function() {
               document.getElementById('completionMessage').classList.add('show');
               setTimeout(function() {
                 google.script.host.close();
               }, 3000);
-            }, 1000);
+            }, 500);
           } else {
-            // Seguir actualizando
-            setTimeout(actualizarProgreso, 500);
+            setTimeout(actualizarProgreso, 800);
           }
         })
         .withFailureHandler(function(error) {
-          console.error('Error:', error);
-          setTimeout(actualizarProgreso, 1000);
+          console.error('Error obteniendo progreso:', error);
+          contadorErrores++;
+          
+          if (contadorErrores < maxErrores) {
+            setTimeout(actualizarProgreso, 2000);
+          } else {
+            document.getElementById('etapaDescripcion').textContent = 
+              '❌ Error de comunicación. Revisa los logs.';
+          }
         })
         .getProgresoCargaAdicional();
     }
 
     function actualizarTimeline(etapa) {
       // Resetear todos los dots
-      for (let i = 1; i <= 5; i++) {
-        const dot = document.getElementById('dot' + i);
-        dot.classList.remove('active', 'completed');
+      for (var i = 1; i <= 6; i++) {
+        var dot = document.getElementById('dot' + i);
+        if (dot) {
+          dot.classList.remove('active', 'completed');
+        }
       }
 
-      // Marcar completados
+      // Validación (etapas 1-3)
       if (etapa >= 1 && etapa <= 3) {
         document.getElementById('dot1').classList.add(etapa > 3 ? 'completed' : 'active');
       } else if (etapa > 3) {
         document.getElementById('dot1').classList.add('completed');
       }
 
+      // Agrupar (etapas 4-5)
       if (etapa >= 4 && etapa <= 5) {
         document.getElementById('dot2').classList.add(etapa > 5 ? 'completed' : 'active');
       } else if (etapa > 5) {
         document.getElementById('dot2').classList.add('completed');
       }
 
+      // Distribuir (etapa 6)
       if (etapa === 6) {
         document.getElementById('dot3').classList.add('active');
       } else if (etapa > 6) {
         document.getElementById('dot3').classList.add('completed');
       }
 
+      // Reportes (etapas 7-10)
       if (etapa >= 7 && etapa <= 10) {
         document.getElementById('dot4').classList.add(etapa > 10 ? 'completed' : 'active');
       } else if (etapa > 10) {
         document.getElementById('dot4').classList.add('completed');
       }
 
-      if (etapa === 11) {
+      // Ordenar (etapa 12)
+      if (etapa === 12) {
         document.getElementById('dot5').classList.add('active');
+      } else if (etapa > 12) {
+        document.getElementById('dot5').classList.add('completed');
+      }
+
+      // Completar (etapa 13)
+      if (etapa === 13) {
+        document.getElementById('dot6').classList.add('active');
       }
     }
 

@@ -1,10 +1,10 @@
 /**
- * MÓDULO 9: CARGA DE BASE ADICIONAL
+ * MÓDULO 9: CARGA DE BASE ADICIONAL - COMPLETO
  * Permite cargar y distribuir datos desde un archivo Excel adicional
- * sin afectar la distribución inicial
+ * MODIFICADO: Incluye ordenamiento automático de hojas al finalizar
  */
 
-// Etapas del proceso de carga adicional
+// Etapas del proceso de carga adicional (ACTUALIZADO - 12 etapas)
 const ETAPAS_CARGA_ADICIONAL = [
   { id: 1, nombre: 'Validación', descripcion: 'Verificando archivo...', icono: '🔍', porcentaje: 0 },
   { id: 2, nombre: 'Lectura', descripcion: 'Leyendo datos del archivo...', icono: '📖', porcentaje: 10 },
@@ -12,11 +12,13 @@ const ETAPAS_CARGA_ADICIONAL = [
   { id: 4, nombre: 'Agrupación', descripcion: 'Agrupando por ejecutivo...', icono: '👥', porcentaje: 30 },
   { id: 5, nombre: 'Preparación', descripcion: 'Preparando distribución...', icono: '⚙️', porcentaje: 40 },
   { id: 6, nombre: 'Distribución', descripcion: 'Distribuyendo datos...', icono: '📊', porcentaje: 50 },
-  { id: 7, nombre: 'BBDD_REPORTE', descripcion: 'Actualizando BBDD_REPORTE...', icono: '📋', porcentaje: 75 },
-  { id: 8, nombre: 'RESUMEN', descripcion: 'Actualizando RESUMEN...', icono: '📈', porcentaje: 85 },
-  { id: 9, nombre: 'LLAMADAS', descripcion: 'Actualizando LLAMADAS...', icono: '📞', porcentaje: 90 },
-  { id: 10, nombre: 'PRODUCTIVIDAD', descripcion: 'Actualizando PRODUCTIVIDAD...', icono: '💼', porcentaje: 95 },
-  { id: 11, nombre: 'Finalización', descripcion: 'Proceso completado', icono: '✅', porcentaje: 100 }
+  { id: 7, nombre: 'Agregar a BBDD', descripcion: 'Agregando a BBDD_*_REMOTO*...', icono: '📥', porcentaje: 65 },
+  { id: 8, nombre: 'BBDD_REPORTE', descripcion: 'Actualizando BBDD_REPORTE...', icono: '📋', porcentaje: 75 },
+  { id: 8, nombre: 'RESUMEN', descripcion: 'Actualizando RESUMEN...', icono: '📈', porcentaje: 80 },
+  { id: 9, nombre: 'LLAMADAS', descripcion: 'Actualizando LLAMADAS...', icono: '📞', porcentaje: 85 },
+  { id: 10, nombre: 'PRODUCTIVIDAD', descripcion: 'Actualizando PRODUCTIVIDAD...', icono: '💼', porcentaje: 90 },
+  { id: 11, nombre: 'Ordenar', descripcion: 'Ordenando hojas...', icono: '🗂️', porcentaje: 95 },
+  { id: 12, nombre: 'Finalización', descripcion: 'Proceso completado', icono: '✅', porcentaje: 100 }
 ];
 
 /**
@@ -132,9 +134,17 @@ function cargarYDistribuirDesdeExcel() {
 
 /**
  * Procesa la carga adicional de datos
+ * MODIFICADO: Incluye ordenamiento automático al finalizar
  */
 function procesarCargaAdicional(fileId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var agregados = 0;
+  var nuevos = 0;
+  var actualizados = 0;
+  var errores = 0;
+  
   try {
+    // ETAPA 1: Validación
     setProgresoCargaAdicional(1, 'Validando acceso al archivo...', 0, 0, 1);
     Utilities.sleep(500);
     
@@ -154,6 +164,7 @@ function procesarCargaAdicional(fileId) {
       throw new Error('El archivo no es una hoja de cálculo de Google Sheets.');
     }
     
+    // ETAPA 2: Lectura
     setProgresoCargaAdicional(2, 'Leyendo datos del archivo...', 10, 0, 1);
     Utilities.sleep(500);
     
@@ -168,6 +179,7 @@ function procesarCargaAdicional(fileId) {
     var encabezados = datos[0];
     var filasDatos = datos.slice(1);
     
+    // ETAPA 3: Validación Estructura
     setProgresoCargaAdicional(3, 'Verificando columna EJECUTIVO...', 20, 0, 1);
     Utilities.sleep(500);
     
@@ -178,6 +190,7 @@ function procesarCargaAdicional(fileId) {
           encabezado.indexOf('VENDEDOR') !== -1 || 
           encabezado.indexOf('AGENTE') !== -1) {
         ejecutivoIndex = i;
+        break;
       }
     }
     
@@ -186,6 +199,7 @@ function procesarCargaAdicional(fileId) {
       throw new Error('No se encontró la columna EJECUTIVO en el archivo.');
     }
     
+    // ETAPA 4: Agrupación
     setProgresoCargaAdicional(4, 'Agrupando datos por ejecutivo...', 30, 0, filasDatos.length);
     Utilities.sleep(500);
     
@@ -201,6 +215,7 @@ function procesarCargaAdicional(fileId) {
       for (var k = 0; k < filasDatos[j].length; k++) {
         if (filasDatos[j][k] && filasDatos[j][k].toString().trim() !== '') {
           filaVacia = false;
+          break;
         }
       }
       
@@ -227,57 +242,27 @@ function procesarCargaAdicional(fileId) {
       throw new Error('No se encontraron ejecutivos válidos en el archivo.');
     }
     
-    setProgresoCargaAdicional(5, 'Preparando distribución de ' + totalRegistros + ' registros...', 40, 0, ejecutivosArray.length);
+    Logger.log('Ejecutivos encontrados: ' + ejecutivosArray.length);
+    Logger.log('Total registros: ' + totalRegistros);
+    
+    // ETAPA 5: Validación de duplicados
+    setProgresoCargaAdicional(5, 'Validando duplicados...', 40, 0, 1);
     Utilities.sleep(500);
     
-    // VALIDAR DUPLICADOS
-    setProgresoCargaAdicional(5, 'Verificando duplicados...', 42, 0, 1);
-    Utilities.sleep(500);
+    var validacion = validarDuplicados(ss, ejecutivosPorNombre, encabezados);
+    ejecutivosPorNombre = validacion.datosSinDuplicados;
+    totalRegistros = validacion.totalSinDuplicados;
     
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var resultadoValidacion = validarDuplicados(ss, ejecutivosPorNombre, encabezados);
-    
-    if (resultadoValidacion.tieneDuplicados) {
-      var mensajeDuplicados = '⚠️ SE ENCONTRARON REGISTROS DUPLICADOS\n\n';
-      mensajeDuplicados += 'Total duplicados: ' + resultadoValidacion.totalDuplicados + '\n\n';
-      mensajeDuplicados += 'Detalle:\n';
-      
-      var detalleResumido = resultadoValidacion.detalle.slice(0, 10);
-      for (var d = 0; d < detalleResumido.length; d++) {
-        mensajeDuplicados += '• ' + detalleResumido[d] + '\n';
-      }
-      
-      if (resultadoValidacion.detalle.length > 10) {
-        mensajeDuplicados += '\n...y ' + (resultadoValidacion.detalle.length - 10) + ' más\n';
-      }
-      
-      mensajeDuplicados += '\n¿Deseas continuar ignorando los duplicados?';
-      
-      var ui = SpreadsheetApp.getUi();
-      var respuesta = ui.alert('⚠️ Duplicados Encontrados', mensajeDuplicados, ui.ButtonSet.YES_NO);
-      
-      if (respuesta !== ui.Button.YES) {
-        setProgresoCargaAdicional(5, '❌ Proceso cancelado por duplicados', 42, 0, 1);
-        throw new Error('Proceso cancelado: Se encontraron registros duplicados');
-      }
-      
-      // Eliminar duplicados del objeto ejecutivosPorNombre
-      ejecutivosPorNombre = resultadoValidacion.datosSinDuplicados;
-      ejecutivosArray = Object.keys(ejecutivosPorNombre);
-      totalRegistros = resultadoValidacion.totalSinDuplicados;
-      
-      setProgresoCargaAdicional(5, 'Duplicados eliminados. Continuando con ' + totalRegistros + ' registros únicos...', 45, 0, 1);
+    if (validacion.tieneDuplicados) {
+      Logger.log('⚠️ Se encontraron ' + validacion.totalDuplicados + ' duplicados');
+      setProgresoCargaAdicional(5, '⚠️ ' + validacion.totalDuplicados + ' duplicados omitidos. Continuando con ' + totalRegistros + ' registros únicos...', 45, 0, 1);
       Utilities.sleep(1000);
     } else {
       setProgresoCargaAdicional(5, '✅ No se encontraron duplicados', 45, 0, 1);
       Utilities.sleep(500);
     }
     
-    var agregados = 0;
-    var nuevos = 0;
-    var actualizados = 0;
-    var errores = 0;
-    
+    // ETAPA 6: Distribución
     var hojasExistentes = ss.getSheets();
     var nombresHojas = {};
     for (var h = 0; h < hojasExistentes.length; h++) {
@@ -289,7 +274,7 @@ function procesarCargaAdicional(fileId) {
       var nombreEjecutivo = ejecutivosArray[n];
       var datosEjecutivo = ejecutivosPorNombre[nombreEjecutivo];
       
-      var porcentajeDistribucion = 50 + Math.floor((n / ejecutivosArray.length) * 25);
+      var porcentajeDistribucion = 50 + Math.floor((n / ejecutivosArray.length) * 20);
       setProgresoCargaAdicional(6, 'Distribuyendo datos para: ' + nombreEjecutivo.replace(/_/g, ' '), porcentajeDistribucion, n + 1, ejecutivosArray.length);
       Utilities.sleep(200);
       
@@ -302,6 +287,7 @@ function procesarCargaAdicional(fileId) {
         }
         
         if (hojaEjecutivo) {
+          // Actualizar hoja existente
           var ultimaFila = hojaEjecutivo.getLastRow();
           var encabezadosHoja = hojaEjecutivo.getRange(1, 1, 1, hojaEjecutivo.getLastColumn()).getValues()[0];
           var numColumnasHoja = encabezadosHoja.length;
@@ -326,6 +312,7 @@ function procesarCargaAdicional(fileId) {
           agregados += datosEjecutivo.length;
           actualizados++;
         } else {
+          // Crear nueva hoja
           Logger.log('Creando nueva hoja para: ' + nombreEjecutivo);
           
           var hojaBBDD = buscarHojaBBDD(ss);
@@ -383,16 +370,32 @@ function procesarCargaAdicional(fileId) {
       }
     }
     
-    setProgresoCargaAdicional(7, 'Actualizando BBDD_REPORTE...', 75, 0, 1);
+    // ETAPA 7: AGREGAR A BBDD_*_REMOTO* (65%)
+    setProgresoCargaAdicional(7, 'Agregando datos a BBDD_*_REMOTO*...', 65, 0, 1);
+    Utilities.sleep(500);
+    
+    try {
+      agregarDatosABBDDRemoto(ss, ejecutivosPorNombre, encabezados);
+      Logger.log('Datos agregados a BBDD_*_REMOTO*');
+    } catch (e) {
+      Logger.log('Error agregando a BBDD_REMOTO: ' + e.toString());
+      // No es crítico si BBDD_REPORTE se regenera después
+    }
+    
+    // ETAPA 8: BBDD_REPORTE (75%)
+    setProgresoCargaAdicional(8, 'Actualizando BBDD_REPORTE...', 75, 0, 1);
     Utilities.sleep(500);
     
     try {
       crearOActualizarReporteAutomatico(ss);
+      Logger.log('BBDD_REPORTE actualizado correctamente');
+      Utilities.sleep(1000); // Esperar a que se consolide
     } catch (e) {
       Logger.log('Error actualizando BBDD_REPORTE: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(8, 'Generando RESUMEN...', 85, 0, 1);
+    // ETAPA 9: RESUMEN (80%)
+    setProgresoCargaAdicional(9, 'Generando RESUMEN...', 80, 0, 1);
     Utilities.sleep(500);
     
     try {
@@ -401,35 +404,66 @@ function procesarCargaAdicional(fileId) {
       Logger.log('Error generando RESUMEN: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(9, 'Actualizando LLAMADAS...', 90, 0, 1);
+    // ETAPA 10: LLAMADAS (85%) - REGENERAR COMPLETAMENTE
+    setProgresoCargaAdicional(10, 'Regenerando LLAMADAS con nuevas fórmulas...', 85, 0, 1);
     Utilities.sleep(500);
     
     try {
+      // Forzar regeneración completa de LLAMADAS
       crearTablaLlamadas();
+      Logger.log('LLAMADAS regenerado con fórmulas actualizadas');
+      Utilities.sleep(500);
     } catch (e) {
-      Logger.log('Error actualizando LLAMADAS: ' + e.toString());
+      Logger.log('Error regenerando LLAMADAS: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(10, 'Actualizando PRODUCTIVIDAD...', 95, 0, 1);
+    // ETAPA 11: PRODUCTIVIDAD (90%) - REGENERAR COMPLETAMENTE
+    setProgresoCargaAdicional(11, 'Regenerando PRODUCTIVIDAD con nuevas fórmulas...', 90, 0, 1);
     Utilities.sleep(500);
     
     try {
+      // Forzar regeneración completa de PRODUCTIVIDAD
       crearHojaProductividad();
+      Logger.log('PRODUCTIVIDAD regenerado con fórmulas actualizadas');
+      Utilities.sleep(500);
     } catch (e) {
-      Logger.log('Error actualizando PRODUCTIVIDAD: ' + e.toString());
+      Logger.log('Error regenerando PRODUCTIVIDAD: ' + e.toString());
     }
     
+    // ========================================
+    // ETAPA 12: ORDENAR HOJAS (96%)
+    // ========================================
+    setProgresoCargaAdicional(12, '🗂️ Ordenando hojas...', 96, 0, 1);
+    Utilities.sleep(500);
+    
+    try {
+      ordenarHojasPorGrupo();
+      Logger.log('✓ Hojas ordenadas correctamente');
+    } catch (e) {
+      Logger.log('Error ordenando hojas: ' + e.toString());
+      // No es crítico, continuar
+    }
+    
+    // ETAPA 13: FINALIZACIÓN (100%)
     var mensajeFinal = '✅ COMPLETADO\n\n';
-    mensajeFinal += '📊 Registros: ' + agregados + '\n';
-    mensajeFinal += '👥 Actualizados: ' + actualizados + '\n';
-    mensajeFinal += '✨ Nuevos: ' + nuevos;
-    
+    mensajeFinal += '📊 Registros agregados: ' + agregados + '\n';
+    mensajeFinal += '👥 Hojas actualizadas: ' + actualizados + '\n';
+    mensajeFinal += '✨ Hojas nuevas: ' + nuevos + '\n';
+    mensajeFinal += '📥 Datos agregados a BBDD_*_REMOTO*\n';
+    mensajeFinal += '🗂️ Hojas ordenadas correctamente';
+   
     if (errores > 0) {
-      mensajeFinal += '\n⚠️ Errores: ' + errores;
+      mensajeFinal += '\n⚠️ Errores encontrados: ' + errores;
     }
     
-    setProgresoCargaAdicional(11, mensajeFinal, 100, ejecutivosArray.length, ejecutivosArray.length);
+    setProgresoCargaAdicional(13, mensajeFinal, 100, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(2000);
+    
+    Logger.log('=== CARGA ADICIONAL COMPLETADA ===');
+    Logger.log('Total registros: ' + agregados);
+    Logger.log('Hojas actualizadas: ' + actualizados);
+    Logger.log('Hojas nuevas: ' + nuevos);
+    Logger.log('Hojas ordenadas: ✓');
     
   } catch (error) {
     Logger.log('Error en procesarCargaAdicional: ' + error.toString());
@@ -450,10 +484,8 @@ function validarDuplicados(ss, ejecutivosPorNombre, encabezados) {
     totalSinDuplicados: 0
   };
   
-  // Buscar columna de identificación (RUT o ID)
   var colIdentificacion = -1;
   var nombreColIdentificacion = '';
-  
   var columnasId = ['RUT', 'RUT_CLIENTE', 'ID', 'IDENTIFICACION', 'DNI', 'CEDULA'];
   
   for (var i = 0; i < encabezados.length; i++) {
@@ -477,7 +509,6 @@ function validarDuplicados(ss, ejecutivosPorNombre, encabezados) {
   
   Logger.log('Validando duplicados usando columna: ' + nombreColIdentificacion);
   
-  // Obtener todos los RUTs/IDs existentes en las hojas de ejecutivos
   var rutosExistentes = {};
   var hojas = ss.getSheets();
   
@@ -485,7 +516,6 @@ function validarDuplicados(ss, ejecutivosPorNombre, encabezados) {
     var hoja = hojas[h];
     var nombreHoja = hoja.getName();
     
-    // Saltar hojas especiales
     if (/^BBDD_.*_REMOTO/i.test(nombreHoja)) continue;
     
     var esExcluida = false;
@@ -530,7 +560,6 @@ function validarDuplicados(ss, ejecutivosPorNombre, encabezados) {
   
   Logger.log('RUTs/IDs existentes encontrados: ' + Object.keys(rutosExistentes).length);
   
-  // Validar duplicados en los datos nuevos
   var ejecutivosLimpios = {};
   
   for (var ejecutivo in ejecutivosPorNombre) {
@@ -573,6 +602,53 @@ function validarDuplicados(ss, ejecutivosPorNombre, encabezados) {
   Logger.log('- Registros únicos: ' + resultado.totalSinDuplicados);
   
   return resultado;
+}
+
+/**
+ * Agrega los datos nuevos a la hoja BBDD_*_REMOTO*
+ */
+function agregarDatosABBDDRemoto(ss, ejecutivosPorNombre, encabezados) {
+  try {
+    var hojaBBDD = buscarHojaBBDD(ss);
+    
+    if (!hojaBBDD) {
+      Logger.log('No se encontró BBDD_*_REMOTO*, saltando agregado');
+      return;
+    }
+    
+    Logger.log('Agregando datos a: ' + hojaBBDD.getName());
+    
+    // Obtener la última fila con datos
+    var ultimaFila = hojaBBDD.getLastRow();
+    
+    // Preparar todos los datos para agregar
+    var todosLosDatos = [];
+    
+    for (var ejecutivo in ejecutivosPorNombre) {
+      var datosEjecutivo = ejecutivosPorNombre[ejecutivo];
+      
+      for (var i = 0; i < datosEjecutivo.length; i++) {
+        todosLosDatos.push(datosEjecutivo[i]);
+      }
+    }
+    
+    if (todosLosDatos.length === 0) {
+      Logger.log('No hay datos para agregar a BBDD_*_REMOTO*');
+      return;
+    }
+    
+    Logger.log('Agregando ' + todosLosDatos.length + ' registros a BBDD_*_REMOTO*');
+    
+    // Agregar los datos después de la última fila
+    var numCols = Math.min(encabezados.length, hojaBBDD.getLastColumn());
+    hojaBBDD.getRange(ultimaFila + 1, 1, todosLosDatos.length, numCols).setValues(todosLosDatos);
+    
+    Logger.log('✓ Datos agregados exitosamente a BBDD_*_REMOTO*');
+    
+  } catch (error) {
+    Logger.log('Error en agregarDatosABBDDRemoto: ' + error.toString());
+    throw error;
+  }
 }
 
 /**

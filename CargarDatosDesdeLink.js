@@ -1,6 +1,7 @@
 /**
- * FUNCIÓN: COPIAR DATOS DESDE LINK A BBDD_*_REMOTO* Y DISTRIBUIR
- * Copia datos y ejecuta distribución automática CON VENTANA DE PROGRESO
+ * MÓDULO: CARGA INICIAL DESDE LINK
+ * Copia datos desde Google Sheets externo y ejecuta distribución completa
+ * VERSIÓN MEJORADA: Incluye eliminación robusta de hojas de ejecutivos
  */
 
 // Etapas del proceso de carga inicial
@@ -143,7 +144,6 @@ function procesarCargaInicialConProgreso(fileId) {
     setProgresoCargaInicial(1, 'Validando acceso al archivo...', 0, 0, 1);
     Utilities.sleep(500);
     
-    // 1. Abrir archivo externo
     var file;
     try {
       file = DriveApp.getFileById(fileId);
@@ -253,8 +253,8 @@ function procesarCargaInicialConProgreso(fileId) {
     Utilities.sleep(500);
     
     try {
-      eliminarHojasEjecutivosAnteriores(ss);
-      Logger.log('Hojas anteriores eliminadas');
+      var hojasEliminadas = eliminarHojasEjecutivosAnteriores(ss);
+      Logger.log('Hojas eliminadas: ' + hojasEliminadas);
     } catch (e) {
       Logger.log('Error eliminando hojas: ' + e.toString());
       // No es crítico, continuar
@@ -299,66 +299,87 @@ function procesarCargaInicialConProgreso(fileId) {
 
 /**
  * Elimina todas las hojas de ejecutivos anteriores
+ * VERSIÓN MEJORADA: Elimina TODAS las hojas que no sean especiales
  */
 function eliminarHojasEjecutivosAnteriores(ss) {
   try {
     var hojas = ss.getSheets();
     var hojasAEliminar = [];
     
+    Logger.log('=== INICIANDO ELIMINACIÓN DE HOJAS ===');
+    Logger.log('Total de hojas en el spreadsheet: ' + hojas.length);
+    
+    // Lista de hojas que NO se deben eliminar
+    var hojasProtegidas = [
+      /^BBDD_.*_REMOTO/i,  // Hoja base de datos remota
+    ];
+    
     // Identificar hojas a eliminar
     for (var i = 0; i < hojas.length; i++) {
       var nombre = hojas[i].getName();
       
-      // No eliminar hojas especiales
-      if (/^BBDD_.*_REMOTO/i.test(nombre)) {
+      // 1. Verificar si es hoja protegida (BBDD_*_REMOTO*)
+      var esProtegida = false;
+      for (var p = 0; p < hojasProtegidas.length; p++) {
+        if (hojasProtegidas[p].test(nombre)) {
+          esProtegida = true;
+          Logger.log('✓ Saltando (protegida): ' + nombre);
+          break;
+        }
+      }
+      
+      if (esProtegida) {
         continue;
       }
       
+      // 2. Verificar si está en lista de hojas excluidas (RESUMEN, LLAMADAS, etc.)
       var esExcluida = false;
       for (var j = 0; j < HOJAS_EXCLUIDAS.length; j++) {
-        if (nombre.indexOf(HOJAS_EXCLUIDAS[j]) !== -1) {
+        if (nombre.toUpperCase().indexOf(HOJAS_EXCLUIDAS[j].toUpperCase()) !== -1) {
           esExcluida = true;
           break;
         }
       }
       
-      // Si no es excluida y tiene columnas de gestión, es hoja de ejecutivo
-      if (!esExcluida && hojas[i].getLastRow() > 1) {
-        try {
-          var enc = hojas[i].getRange(1, 1, 1, Math.min(hojas[i].getLastColumn(), 20)).getValues()[0];
-          
-          // Buscar si tiene columnas de gestión (indicador de hoja de ejecutivo)
-          for (var k = 0; k < enc.length; k++) {
-            var encabezado = enc[k].toString().trim();
-            if (encabezado === 'FECHA_LLAMADA' || encabezado === 'ESTADO_COMPROMISO' || 
-                encabezado === 'SUB_ESTADO' || encabezado === 'NOTA_EJECUTIVO') {
-              hojasAEliminar.push(hojas[i]);
-              break;
-            }
-          }
-        } catch (e) {
-          Logger.log('Error verificando hoja ' + nombre + ': ' + e.toString());
-        }
+      if (esExcluida) {
+        Logger.log('✓ Saltando (excluida): ' + nombre);
+        continue;
       }
+      
+      // 3. Si llegó aquí, es una hoja de ejecutivo (o desconocida) → ELIMINAR
+      // No importa si tiene datos o no, se elimina
+      Logger.log('🗑️ Marcada para eliminar: ' + nombre);
+      hojasAEliminar.push(hojas[i]);
     }
     
     // Eliminar hojas identificadas
-    Logger.log('Hojas a eliminar: ' + hojasAEliminar.length);
+    Logger.log('=== ELIMINANDO HOJAS ===');
+    Logger.log('Total hojas a eliminar: ' + hojasAEliminar.length);
     
-    for (var m = 0; m < hojasAEliminar.length; m++) {
+    if (hojasAEliminar.length === 0) {
+      Logger.log('No hay hojas de ejecutivos para eliminar');
+      return 0;
+    }
+    
+    var eliminadas = 0;
+    for (var n = 0; n < hojasAEliminar.length; n++) {
       try {
-        var nombreHoja = hojasAEliminar[m].getName();
-        ss.deleteSheet(hojasAEliminar[m]);
-        Logger.log('Hoja eliminada: ' + nombreHoja);
+        var nombreHoja = hojasAEliminar[n].getName();
+        ss.deleteSheet(hojasAEliminar[n]);
+        eliminadas++;
+        Logger.log('✅ Eliminada: ' + nombreHoja);
       } catch (e) {
-        Logger.log('Error eliminando hoja: ' + e.toString());
+        Logger.log('❌ Error eliminando ' + nombreHoja + ': ' + e.toString());
       }
     }
     
-    return hojasAEliminar.length;
+    Logger.log('=== RESUMEN ===');
+    Logger.log('Hojas eliminadas exitosamente: ' + eliminadas + '/' + hojasAEliminar.length);
+    
+    return eliminadas;
     
   } catch (error) {
-    Logger.log('Error en eliminarHojasEjecutivosAnteriores: ' + error.toString());
+    Logger.log('ERROR CRÍTICO en eliminarHojasEjecutivosAnteriores: ' + error.toString());
     throw error;
   }
 }
