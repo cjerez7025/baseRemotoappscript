@@ -94,7 +94,8 @@ function mostrarMenuGestion() {
     '1️⃣ Distribución inicial\n' +
     '2️⃣ Generar Resumen\n' +
     '3️⃣ Funciones Individuales\n' +
-    '4️⃣ Limpiar Hojas de Ejecutivos\n\n' +
+    '4️⃣ Limpiar Hojas de Ejecutivos\n' +
+    '5️⃣ Cargar Base Adicional (Excel)\n\n' +
     'Selecciona una opción:',
     ui.ButtonSet.OK_CANCEL
   );
@@ -117,6 +118,7 @@ function mostrarOpcionesGestion() {
     '2 - Generar Resumen\n' +
     '3 - Funciones Individuales\n' +
     '4 - Limpiar Hojas de Ejecutivos\n' +
+    '5 - Cargar Base Adicional (Excel)\n' +
     '0 - Salir',
     ui.ButtonSet.OK_CANCEL
   );
@@ -152,6 +154,10 @@ function mostrarOpcionesGestion() {
         limpiarHojasEjecutivos();
         ui.alert('✅ Hojas limpiadas', 'Las hojas de ejecutivos han sido limpiadas', ui.ButtonSet.OK);
       }
+      break;
+      
+    case '5':
+      cargarYDistribuirDesdeExcel();
       break;
       
     case '0':
