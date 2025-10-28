@@ -71,10 +71,10 @@ function ejecutarProcesoCompleto() {
     var hojas = ss.getSheets();
     var alertasEjecutivos = validarEjecutivosEnBase(ejecutivosPorNombre, hojas);
     
-    // ETAPA 5: Creación (20-50%)
+    // ETAPA 5: Creación (20-60%)
     for (var i = 0; i < ejecutivosArray.length; i++) {
       var nombreEjecutivo = ejecutivosArray[i];
-      var porcentaje = 20 + ((i + 1) / ejecutivosArray.length) * 30;
+      var porcentaje = 20 + ((i + 1) / ejecutivosArray.length) * 40;
       
       setProgreso(5, '📄 Creando: ' + nombreEjecutivo.replace(/_/g, ' '), 
                   Math.round(porcentaje), i + 1, ejecutivosArray.length);
@@ -88,18 +88,10 @@ function ejecutarProcesoCompleto() {
       Utilities.sleep(200);
     }
     
-    // ETAPA 6: Protección (60%)
-    setProgreso(6, '🔒 Aplicando protección...', 60, ejecutivosArray.length, ejecutivosArray.length);
-    Utilities.sleep(500);
+    // ETAPA 6 ELIMINADA - Ya no se aplica protección
     
-    try {
-      aplicarProteccionTodasLasHojas(ss);
-    } catch (e) {
-      Logger.log('Error en protección: ' + e.toString());
-    }
-    
-    // ETAPA 7: BBDD_REPORTE (70%)
-    setProgreso(7, '🗃️ Generando BBDD_REPORTE...', 70, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 6: BBDD_REPORTE (70%)
+    setProgreso(6, '🗃️ Generando BBDD_REPORTE...', 70, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
     
     try {
@@ -108,8 +100,8 @@ function ejecutarProcesoCompleto() {
       throw new Error('Error crítico en BBDD_REPORTE: ' + e.toString());
     }
     
-    // ETAPA 8: RESUMEN (80%)
-    setProgreso(8, '📈 Generando RESUMEN...', 80, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 7: RESUMEN (80%)
+    setProgreso(7, '📈 Generando RESUMEN...', 80, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
     
     try {
@@ -118,8 +110,8 @@ function ejecutarProcesoCompleto() {
       Logger.log('Error en RESUMEN: ' + e.toString());
     }
     
-    // ETAPA 9: LLAMADAS (85%)
-    setProgreso(9, '📞 Creando LLAMADAS...', 85, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 8: LLAMADAS (85%)
+    setProgreso(8, '📞 Creando LLAMADAS...', 85, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
     
     try {
@@ -128,8 +120,8 @@ function ejecutarProcesoCompleto() {
       Logger.log('Error en LLAMADAS: ' + e.toString());
     }
     
-    // ETAPA 10: PRODUCTIVIDAD (90%)
-    setProgreso(10, '📊 Creando PRODUCTIVIDAD...', 90, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 9: PRODUCTIVIDAD (90%)
+    setProgreso(9, '📊 Creando PRODUCTIVIDAD...', 90, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
     
     try {
@@ -138,8 +130,8 @@ function ejecutarProcesoCompleto() {
       Logger.log('Error en PRODUCTIVIDAD: ' + e.toString());
     }
     
-    // ETAPA 11: Ordenar (95%)
-    setProgreso(11, '🗂️ Ordenando hojas...', 95, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 10: Ordenar (95%)
+    setProgreso(10, '🗂️ Ordenando hojas...', 95, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
     
     try {
@@ -148,14 +140,13 @@ function ejecutarProcesoCompleto() {
       Logger.log('Error ordenando: ' + e.toString());
     }
     
-    // ETAPA 12: Finalización (100%)
-    setProgreso(12, '✅ Proceso completado', 100, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 11: Finalización (100%)
+    setProgreso(11, '✅ Proceso completado', 100, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(1500);
     
-    // Mensaje de éxito
+    // Mensaje de éxito (SIN MENCIÓN DE PROTECCIÓN)
     var msg = '✅ PROCESAMIENTO EXITOSO\n\n';
     msg += '📊 Ejecutivos: ' + ejecutivosArray.length + '\n';
-    msg += '🔒 Protección aplicada\n';
     msg += '📋 BBDD_REPORTE creada\n';
     msg += '📈 RESUMEN generado\n';
     msg += '📞 LLAMADAS creada\n';

@@ -91,7 +91,7 @@ function mostrarMenuGestion() {
   const resultado = ui.alert(
     '🚀 Panel de Gestión Supervisores',
     '¿Qué deseas hacer?\n\n' +
-    '1️⃣ Distribución inicial\n' +
+    '1️⃣ Carga Inicial (Copiar y Distribuir)\n' +
     '2️⃣ Generar Resumen\n' +
     '3️⃣ Funciones Individuales\n' +
     '4️⃣ Limpiar Hojas de Ejecutivos\n' +
@@ -114,7 +114,7 @@ function mostrarOpcionesGestion() {
   const response = ui.prompt(
     '📋 Selecciona una opción',
     'Ingresa el número de la opción:\n\n' +
-    '1 - Distribución inicial\n' +
+    '1 - Carga Inicial (Copiar y Distribuir)\n' +
     '2 - Generar Resumen\n' +
     '3 - Funciones Individuales\n' +
     '4 - Limpiar Hojas de Ejecutivos\n' +
@@ -131,8 +131,7 @@ function mostrarOpcionesGestion() {
   
   switch(opcion) {
     case '1':
-      procesarEjecutivos();
-      ui.alert('✅ Procesamiento completado', 'Los ejecutivos han sido procesados exitosamente', ui.ButtonSet.OK);
+      cargarDatosDesdeLink();
       break;
       
     case '2':
