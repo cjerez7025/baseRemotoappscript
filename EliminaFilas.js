@@ -1,5 +1,11 @@
 /**
- * FUNCIÓN: Eliminar filas en blanco de todas las hojas después de distribuir
+ * MÓDULO: ELIMINACIÓN DE FILAS EN BLANCO
+ * Elimina filas completamente vacías de las hojas de ejecutivos después de distribución
+ * para evitar que se consoliden en BBDD_REPORTE
+ */
+
+/**
+ * FUNCIÓN PRINCIPAL: Eliminar filas en blanco de todas las hojas después de distribuir
  * Se debe ejecutar después de la distribución de datos
  */
 function eliminarFilasBlancasPostDistribucion() {
@@ -9,7 +15,7 @@ function eliminarFilasBlancasPostDistribucion() {
     let hojasLimpiadas = 0;
     let filasEliminadas = 0;
     
-    console.log('Iniciando limpieza de filas en blanco...');
+    Logger.log('=== INICIANDO LIMPIEZA DE FILAS EN BLANCO ===');
     
     for (let i = 0; i < hojas.length; i++) {
       const hoja = hojas[i];
@@ -24,20 +30,20 @@ function eliminarFilasBlancasPostDistribucion() {
         continue;
       }
       
-      // Solo procesar hojas de ejecutivos
+      // Solo procesar hojas de ejecutivos que tengan datos
       if (hoja.getLastRow() > 1) {
-        const eliminadas = eliminarFilasBlancasDeHoja(hoja);
+        const eliminadas = eliminarFilasBlancasDeHojaOptimizado(hoja);
         if (eliminadas > 0) {
           hojasLimpiadas++;
           filasEliminadas += eliminadas;
-          console.log(`✓ ${nombreHoja}: ${eliminadas} filas eliminadas`);
+          Logger.log(`✓ ${nombreHoja}: ${eliminadas} filas eliminadas`);
         }
       }
     }
     
-    console.log(`\n✅ Limpieza completada:`);
-    console.log(`   - Hojas procesadas: ${hojasLimpiadas}`);
-    console.log(`   - Total filas eliminadas: ${filasEliminadas}`);
+    Logger.log(`\n=== LIMPIEZA COMPLETADA ===`);
+    Logger.log(`   - Hojas procesadas: ${hojasLimpiadas}`);
+    Logger.log(`   - Total filas eliminadas: ${filasEliminadas}`);
     
     return {
       exito: true,
@@ -46,7 +52,7 @@ function eliminarFilasBlancasPostDistribucion() {
     };
     
   } catch (error) {
-    console.error('Error en limpieza de filas:', error.message);
+    Logger.log('ERROR en limpieza de filas: ' + error.message);
     return {
       exito: false,
       error: error.message
@@ -94,7 +100,7 @@ function eliminarFilasBlancasDeHoja(hoja) {
     return filasAEliminar.length;
     
   } catch (error) {
-    console.error(`Error limpiando hoja ${hoja.getName()}:`, error.message);
+    Logger.log(`Error limpiando hoja ${hoja.getName()}: ${error.message}`);
     return 0;
   }
 }
@@ -157,7 +163,7 @@ function eliminarFilasBlancasDeHojaOptimizado(hoja) {
     return totalFilasEliminadas;
     
   } catch (error) {
-    console.error(`Error limpiando hoja ${hoja.getName()}:`, error.message);
+    Logger.log(`Error limpiando hoja ${hoja.getName()}: ${error.message}`);
     return 0;
   }
 }
@@ -169,7 +175,7 @@ function eliminarFilasBlancasDeHojaOptimizado(hoja) {
 function distribuirYLimpiar() {
   try {
     // 1. Ejecutar distribución normal (tu función existente)
-    distribuirDatosDesdeReporte(); // O el nombre de tu función de distribución
+    procesarEjecutivos(); // Esta función ahora incluye la limpieza automáticamente
     
     // 2. Esperar a que termine la distribución
     SpreadsheetApp.flush();
@@ -180,31 +186,22 @@ function distribuirYLimpiar() {
     
     // 4. Regenerar BBDD_REPORTE para reflejar los cambios
     if (resultado.exito && resultado.filasEliminadas > 0) {
-      console.log('Regenerando BBDD_REPORTE sin filas vacías...');
-      crearOActualizarReporteAutomatico();
+      Logger.log('Regenerando BBDD_REPORTE sin filas vacías...');
+      crearOActualizarReporteAutomatico(SpreadsheetApp.getActiveSpreadsheet());
     }
     
     return resultado;
     
   } catch (error) {
-    console.error('Error en distribuirYLimpiar:', error.message);
+    Logger.log('Error en distribuirYLimpiar: ' + error.message);
     throw error;
   }
 }
 
-/**
- * MENÚ PERSONALIZADO: Agregar opción al menú de Google Sheets
- */
-function onOpen() {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu('🧹 Limpieza')
-    .addItem('Eliminar filas en blanco', 'eliminarFilasBlancasPostDistribucion')
-    .addItem('Distribuir y limpiar', 'distribuirYLimpiar')
-    .addToUi();
-}
+
 
 /**
- * FUNCIÓN DE PRUEBA: Identifica filas vacías sin eliminarlas
+ * FUNCIÓN DE DIAGNÓSTICO: Identifica filas vacías sin eliminarlas
  * Útil para verificar antes de ejecutar la limpieza real
  */
 function identificarFilasVaciasEnTodasLasHojas() {
@@ -212,10 +209,13 @@ function identificarFilasVaciasEnTodasLasHojas() {
   const hojas = spreadsheet.getSheets();
   const reporte = [];
   
+  Logger.log('\n=== DIAGNÓSTICO DE FILAS VACÍAS ===\n');
+  
   for (let i = 0; i < hojas.length; i++) {
     const hoja = hojas[i];
     const nombreHoja = hoja.getName();
     
+    // Excluir hojas especiales
     if (nombreHoja === 'BBDD_REPORTE' || 
         nombreHoja === 'RESUMEN' || 
         nombreHoja === 'LLAMADAS' || 
@@ -247,12 +247,47 @@ function identificarFilasVaciasEnTodasLasHojas() {
     }
   }
   
-  console.log('\n📊 REPORTE DE FILAS VACÍAS:\n');
-  reporte.forEach(item => {
-    console.log(`${item.hoja}:`);
-    console.log(`  - Total filas: ${item.totalFilas}`);
-    console.log(`  - Filas vacías: ${item.filasVacias} (${item.porcentaje})`);
-  });
+  Logger.log('📊 REPORTE DE FILAS VACÍAS:\n');
+  
+  if (reporte.length === 0) {
+    Logger.log('✅ No se encontraron filas vacías en ninguna hoja');
+  } else {
+    let totalVacias = 0;
+    reporte.forEach(item => {
+      Logger.log(`\n${item.hoja}:`);
+      Logger.log(`  - Total filas: ${item.totalFilas}`);
+      Logger.log(`  - Filas vacías: ${item.filasVacias} (${item.porcentaje})`);
+      totalVacias += item.filasVacias;
+    });
+    Logger.log(`\n📈 TOTAL FILAS VACÍAS: ${totalVacias}`);
+    Logger.log(`📄 HOJAS AFECTADAS: ${reporte.length}`);
+  }
+  
+  // Mostrar resultado en UI
+  const ui = SpreadsheetApp.getUi();
+  if (reporte.length === 0) {
+    ui.alert('✅ Diagnóstico Completo', 
+      'No se encontraron filas vacías en las hojas de ejecutivos.', 
+      ui.ButtonSet.OK);
+  } else {
+    let mensaje = '📊 Se encontraron filas vacías:\n\n';
+    reporte.forEach(item => {
+      mensaje += `${item.hoja}: ${item.filasVacias} filas (${item.porcentaje})\n`;
+    });
+    mensaje += `\nTotal: ${reporte.reduce((sum, item) => sum + item.filasVacias, 0)} filas vacías`;
+    mensaje += `\n\n¿Deseas eliminarlas?`;
+    
+    const respuesta = ui.alert('🔍 Diagnóstico Completo', mensaje, ui.ButtonSet.YES_NO);
+    
+    if (respuesta === ui.Button.YES) {
+      const resultado = eliminarFilasBlancasPostDistribucion();
+      if (resultado.exito) {
+        ui.alert('✅ Limpieza Completada', 
+          `Se eliminaron ${resultado.filasEliminadas} filas vacías de ${resultado.hojasLimpiadas} hojas.`, 
+          ui.ButtonSet.OK);
+      }
+    }
+  }
   
   return reporte;
 }

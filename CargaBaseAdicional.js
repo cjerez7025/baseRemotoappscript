@@ -7,6 +7,7 @@
  * - Las hojas nuevas se crean correctamente con datos
  * - Se ordenan las hojas al finalizar
  * - Se regenera PRODUCTIVIDAD con fórmulas dinámicas
+ * - Se eliminan filas en blanco automáticamente
  */
 
 // Etapas del proceso de carga adicional
@@ -17,12 +18,13 @@ const ETAPAS_CARGA_ADICIONAL = [
   { id: 4, nombre: 'Agrupación', descripcion: 'Agrupando por ejecutivo...', icono: '👥', porcentaje: 30 },
   { id: 5, nombre: 'Preparación', descripcion: 'Preparando distribución...', icono: '⚙️', porcentaje: 40 },
   { id: 6, nombre: 'Distribución', descripcion: 'Distribuyendo datos...', icono: '📊', porcentaje: 50 },
-  { id: 7, nombre: 'BBDD_REPORTE', descripcion: 'Actualizando BBDD_REPORTE...', icono: '📋', porcentaje: 75 },
-  { id: 8, nombre: 'RESUMEN', descripcion: 'Actualizando RESUMEN...', icono: '📈', porcentaje: 85 },
-  { id: 9, nombre: 'LLAMADAS', descripcion: 'Actualizando LLAMADAS...', icono: '📞', porcentaje: 90 },
-  { id: 10, nombre: 'PRODUCTIVIDAD', descripcion: 'Actualizando PRODUCTIVIDAD...', icono: '💼', porcentaje: 93 },
-  { id: 11, nombre: 'Ordenamiento', descripcion: 'Ordenando hojas...', icono: '🗂️', porcentaje: 96 },
-  { id: 12, nombre: 'Finalización', descripcion: 'Proceso completado', icono: '✅', porcentaje: 100 }
+  { id: 7, nombre: 'Limpieza', descripcion: 'Eliminando filas en blanco...', icono: '🧹', porcentaje: 70 },
+  { id: 8, nombre: 'BBDD_REPORTE', descripcion: 'Actualizando BBDD_REPORTE...', icono: '📋', porcentaje: 75 },
+  { id: 9, nombre: 'RESUMEN', descripcion: 'Actualizando RESUMEN...', icono: '📈', porcentaje: 85 },
+  { id: 10, nombre: 'LLAMADAS', descripcion: 'Actualizando LLAMADAS...', icono: '📞', porcentaje: 90 },
+  { id: 11, nombre: 'PRODUCTIVIDAD', descripcion: 'Actualizando PRODUCTIVIDAD...', icono: '💼', porcentaje: 93 },
+  { id: 12, nombre: 'Ordenamiento', descripcion: 'Ordenando hojas...', icono: '🗂️', porcentaje: 96 },
+  { id: 13, nombre: 'Finalización', descripcion: 'Proceso completado', icono: '✅', porcentaje: 100 }
 ];
 
 function setProgresoCargaAdicional(etapaId, mensaje, porcentaje, actual, total) {
@@ -302,7 +304,17 @@ function procesarCargaAdicional(fileId) {
               fila[colEjecutivoEnHoja] = nombreEjecutivo.replace(/_/g, ' ').toUpperCase();
             }
             
-            fila = fila.concat(['', '', '', 'Sin Gestión', 'Sin Gestión', '', '', '']);
+            // CORRECCIÓN: Agregar las 8 columnas del sistema correctamente
+            fila = fila.concat([
+              '',                    // FECHA_GESTION
+              '',                    // HORA_GESTION
+              '',                    // CONTACTABILIDAD
+              'Sin Gestión',         // TIPIFICACION
+              'Sin Gestión',         // SUBTIPIFICACION
+              '',                    // COMPROMISO_PAGO
+              '',                    // MONTO_COMP
+              ''                     // OBSERVACIONES
+            ]);
             datosExpandidos.push(fila);
           }
           hojaEjecutivo.getRange(ultimaFila + 1, 1, datosExpandidos.length, numColumnasHoja).setValues(datosExpandidos);
@@ -311,126 +323,23 @@ function procesarCargaAdicional(fileId) {
           actualizados++;
           Logger.log('✓ Agregados ' + datosEjecutivo.length + ' registros a hoja existente');
         } else {
+          // EJECUTIVO NUEVO: Usar función existente crearHojaEjecutivo()
           Logger.log('=== CREANDO NUEVA HOJA PARA EJECUTIVO NUEVO ===');
           Logger.log('Ejecutivo: ' + nombreEjecutivo);
           Logger.log('Número de registros: ' + datosEjecutivo.length);
           
-          var hojaBBDD = buscarHojaBBDD(ss);
-          var encabezadosCompletos = [];
-          if (hojaBBDD) {
-            var numColsBBDD = hojaBBDD.getLastColumn();
-            encabezadosCompletos = hojaBBDD.getRange(1, 1, 1, numColsBBDD).getValues()[0];
-            Logger.log('✓ Encabezados tomados de BBDD: ' + numColsBBDD + ' columnas');
-          } else {
-            encabezadosCompletos = encabezados.concat(COLUMNAS_NUEVAS);
-            Logger.log('✓ Encabezados generados: ' + encabezadosCompletos.length + ' columnas');
-          }
-          
-          var nuevaHoja = ss.insertSheet(nombreEjecutivo);
-          Logger.log('✓ Hoja creada: ' + nombreEjecutivo);
-          
-          nuevaHoja.getRange(1, 1, 1, encabezadosCompletos.length)
-            .setValues([encabezadosCompletos])
-            .setBackground(COLORES.HEADER_REPORTE)
-            .setFontWeight('bold')
-            .setHorizontalAlignment('center')
-            .setFontColor('white');
-          Logger.log('✓ Encabezados escritos con formato');
-          
-          var numColsOriginales = encabezados.length;
-          var datosExpandidos = [];
-          Logger.log('Preparando datos...');
-          Logger.log('  Columnas del archivo origen: ' + numColsOriginales);
-          Logger.log('  Columnas de la nueva hoja: ' + encabezadosCompletos.length);
-          Logger.log('  Filas a procesar: ' + datosEjecutivo.length);
-          
-          for (var r = 0; r < datosEjecutivo.length; r++) {
-            var fila = datosEjecutivo[r].slice(0, numColsOriginales);
-            while (fila.length < numColsOriginales) {
-              fila.push('');
-            }
-            
-            // CORRECCIÓN CRÍTICA: Asegurar que el nombre del ejecutivo tenga el formato correcto
-            // La columna EJECUTIVO debe tener espacios, no guiones bajos
-            if (ejecutivoIndex >= 0 && ejecutivoIndex < fila.length) {
-              // Convertir guiones bajos a espacios y mantener el formato original
-              var nombreOriginal = fila[ejecutivoIndex].toString();
-              // Si el nombre tiene formato con guiones, convertirlo a espacios con mayúsculas
-              if (nombreOriginal.indexOf('_') !== -1 || nombreOriginal !== nombreOriginal.toUpperCase()) {
-                fila[ejecutivoIndex] = nombreEjecutivo.replace(/_/g, ' ').toUpperCase();
-              }
-            }
-            
-            fila = fila.concat(['', '', '', 'Sin Gestión', 'Sin Gestión', '', '', '']);
-            datosExpandidos.push(fila);
-          }
-          Logger.log('✓ Datos expandidos: ' + datosExpandidos.length + ' filas preparadas');
-          
-          if (datosExpandidos.length > 0) {
-            var columnasEnDatos = datosExpandidos[0].length;
-            var columnasEsperadas = encabezadosCompletos.length;
-            Logger.log('Verificación de columnas:');
-            Logger.log('  En datos: ' + columnasEnDatos);
-            Logger.log('  Esperadas: ' + columnasEsperadas);
-            
-            if (columnasEnDatos !== columnasEsperadas) {
-              Logger.log('⚠️ DESAJUSTE DETECTADO - Ajustando...');
-              for (var ajuste = 0; ajuste < datosExpandidos.length; ajuste++) {
-                if (datosExpandidos[ajuste].length < columnasEsperadas) {
-                  while (datosExpandidos[ajuste].length < columnasEsperadas) {
-                    datosExpandidos[ajuste].push('');
-                  }
-                } else if (datosExpandidos[ajuste].length > columnasEsperadas) {
-                  datosExpandidos[ajuste] = datosExpandidos[ajuste].slice(0, columnasEsperadas);
-                }
-              }
-              Logger.log('✓ Columnas ajustadas a: ' + datosExpandidos[0].length);
-            }
-          }
-          
-          if (datosExpandidos.length > 0) {
-            try {
-              Logger.log('Escribiendo ' + datosExpandidos.length + ' filas en la hoja nueva...');
-              nuevaHoja.getRange(2, 1, datosExpandidos.length, encabezadosCompletos.length)
-                .setValues(datosExpandidos);
-              Logger.log('✅ DATOS ESCRITOS EXITOSAMENTE');
-              Logger.log('  Filas: ' + datosExpandidos.length);
-              Logger.log('  Columnas: ' + encabezadosCompletos.length);
-            } catch (writeError) {
-              Logger.log('❌ ERROR CRÍTICO AL ESCRIBIR DATOS');
-              Logger.log('Error: ' + writeError.toString());
-              Logger.log('Stack: ' + writeError.stack);
-              throw writeError;
-            }
-          } else {
-            Logger.log('❌ ERROR: datosExpandidos está vacío - NO SE ESCRIBIERON DATOS');
-          }
-          
           try {
-            Logger.log('Aplicando validaciones y fórmulas...');
-            aplicarValidacionesYFormulas(nuevaHoja, encabezadosCompletos, datosExpandidos.length);
-            Logger.log('✓ Validaciones aplicadas');
-          } catch (validError) {
-            Logger.log('⚠️ Error aplicando validaciones (no crítico): ' + validError.toString());
+            // Usar la función que ya existe y funciona correctamente
+            crearHojaEjecutivo(ss, nombreEjecutivo, datosEjecutivo, encabezados);
+            
+            nuevos++;
+            agregados += datosEjecutivo.length;
+            Logger.log('✅ ' + nombreEjecutivo + ' creada con ' + datosEjecutivo.length + ' registros');
+          } catch (crearError) {
+            Logger.log('❌ ERROR al crear hoja: ' + crearError.toString());
+            throw crearError;
           }
           
-          nuevaHoja.setFrozenRows(1);
-          var colsParaAutoSize = Math.min(encabezadosCompletos.length, 26);
-          nuevaHoja.autoResizeColumns(1, colsParaAutoSize);
-          
-          if (datosExpandidos.length > 0) {
-            try {
-              nuevaHoja.getRange(1, 1, datosExpandidos.length + 1, encabezadosCompletos.length).createFilter();
-              Logger.log('✓ Filtro aplicado');
-            } catch (filterError) {
-              Logger.log('⚠️ Error aplicando filtro (no crítico): ' + filterError.toString());
-            }
-          }
-          
-          nuevos++;
-          agregados += datosEjecutivo.length;
-          Logger.log('=== HOJA NUEVA COMPLETADA ===');
-          Logger.log('✅ ' + nombreEjecutivo + ' creada con ' + datosExpandidos.length + ' registros');
           Logger.log('');
         }
       } catch (e) {
@@ -444,9 +353,21 @@ function procesarCargaAdicional(fileId) {
     Logger.log('Hojas actualizadas: ' + actualizados);
     Logger.log('Hojas nuevas: ' + nuevos);
     Logger.log('Errores: ' + errores);
+    
+    // LIMPIEZA DE FILAS EN BLANCO
+    setProgresoCargaAdicional(7, 'Eliminando filas en blanco...', 70, 0, 1);
+    Utilities.sleep(500);
+    Logger.log('=== ELIMINANDO FILAS EN BLANCO ===');
+    try {
+      var resultadoLimpieza = eliminarFilasEnBlancoTodasLasHojas();
+      Logger.log('✓ Limpieza completada: ' + resultadoLimpieza.totalFilasEliminadas + ' filas eliminadas');
+    } catch (e) {
+      Logger.log('❌ Error en limpieza de filas: ' + e.toString());
+    }
+    
     Logger.log('=== ACTUALIZANDO HOJAS DEL SISTEMA ===');
     
-    setProgresoCargaAdicional(7, 'Actualizando BBDD_REPORTE...', 75, 0, 1);
+    setProgresoCargaAdicional(8, 'Actualizando BBDD_REPORTE...', 75, 0, 1);
     Utilities.sleep(500);
     try {
       crearOActualizarReporteAutomatico(ss);
@@ -455,7 +376,7 @@ function procesarCargaAdicional(fileId) {
       Logger.log('❌ Error actualizando BBDD_REPORTE: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(8, 'Generando RESUMEN...', 85, 0, 1);
+    setProgresoCargaAdicional(9, 'Generando RESUMEN...', 85, 0, 1);
     Utilities.sleep(500);
     try {
       generarResumenAutomatico(ss);
@@ -464,7 +385,7 @@ function procesarCargaAdicional(fileId) {
       Logger.log('❌ Error generando RESUMEN: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(9, 'Actualizando LLAMADAS...', 90, 0, 1);
+    setProgresoCargaAdicional(10, 'Actualizando LLAMADAS...', 90, 0, 1);
     Utilities.sleep(500);
     try {
       crearTablaLlamadas();
@@ -473,7 +394,7 @@ function procesarCargaAdicional(fileId) {
       Logger.log('❌ Error actualizando LLAMADAS: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(10, 'Actualizando PRODUCTIVIDAD...', 93, 0, 1);
+    setProgresoCargaAdicional(11, 'Actualizando PRODUCTIVIDAD...', 93, 0, 1);
     Utilities.sleep(500);
     try {
       crearHojaProductividad();
@@ -482,7 +403,7 @@ function procesarCargaAdicional(fileId) {
       Logger.log('❌ Error actualizando PRODUCTIVIDAD: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(11, 'Ordenando hojas...', 96, 0, 1);
+    setProgresoCargaAdicional(12, 'Ordenando hojas...', 96, 0, 1);
     Utilities.sleep(500);
     try {
       ordenarHojasPorGrupo();
@@ -499,7 +420,7 @@ function procesarCargaAdicional(fileId) {
     if (errores > 0) {
       mensajeFinal += '\n⚠️ Errores: ' + errores;
     }
-    setProgresoCargaAdicional(12, mensajeFinal, 100, ejecutivosArray.length, ejecutivosArray.length);
+    setProgresoCargaAdicional(13, mensajeFinal, 100, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(2000);
   } catch (error) {
     Logger.log('❌ Error en procesarCargaAdicional: ' + error.toString());
@@ -652,4 +573,139 @@ function extraerFileId(input) {
     return input;
   }
   return null;
+}
+
+/**
+ * FUNCIÓN DE LIMPIEZA DE FILAS EN BLANCO
+ * Elimina todas las filas completamente vacías de las hojas de ejecutivos
+ */
+function eliminarFilasEnBlancoTodasLasHojas() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var hojas = ss.getSheets();
+  var totalFilasEliminadas = 0;
+  var hojasLimpiadas = 0;
+  
+  Logger.log('=== INICIANDO LIMPIEZA DE FILAS EN BLANCO ===');
+  
+  for (var i = 0; i < hojas.length; i++) {
+    var hoja = hojas[i];
+    var nombreHoja = hoja.getName();
+    
+    // Excluir hojas del sistema
+    var esExcluida = false;
+    var hojasExcluidas = ['BBDD_REPORTE', 'RESUMEN', 'LLAMADAS', 'PRODUCTIVIDAD', 'CONFIGURACION', 'PLANTILLA'];
+    for (var j = 0; j < hojasExcluidas.length; j++) {
+      if (nombreHoja.indexOf(hojasExcluidas[j]) !== -1) {
+        esExcluida = true;
+        break;
+      }
+    }
+    
+    // Excluir hojas remotas
+    if (/^BBDD_.*_REMOTO/i.test(nombreHoja)) {
+      esExcluida = true;
+    }
+    
+    if (esExcluida) {
+      Logger.log('⊘ Saltando hoja del sistema: ' + nombreHoja);
+      continue;
+    }
+    
+    try {
+      Logger.log('Procesando: ' + nombreHoja);
+      var filasEliminadas = eliminarFilasEnBlancoHoja(hoja);
+      
+      if (filasEliminadas > 0) {
+        totalFilasEliminadas += filasEliminadas;
+        hojasLimpiadas++;
+        Logger.log('  ✓ ' + nombreHoja + ': ' + filasEliminadas + ' filas eliminadas');
+      } else {
+        Logger.log('  ○ ' + nombreHoja + ': Sin filas vacías');
+      }
+    } catch (e) {
+      Logger.log('  ✗ Error en ' + nombreHoja + ': ' + e.toString());
+    }
+  }
+  
+  Logger.log('=== LIMPIEZA COMPLETADA ===');
+  Logger.log('Total de filas eliminadas: ' + totalFilasEliminadas);
+  Logger.log('Hojas limpiadas: ' + hojasLimpiadas);
+  
+  return {
+    totalFilasEliminadas: totalFilasEliminadas,
+    hojasLimpiadas: hojasLimpiadas
+  };
+}
+
+/**
+ * Elimina filas completamente vacías de una hoja específica
+ */
+function eliminarFilasEnBlancoHoja(hoja) {
+  var ultimaFila = hoja.getLastRow();
+  var ultimaColumna = hoja.getLastColumn();
+  
+  // Si la hoja está vacía o solo tiene encabezados
+  if (ultimaFila <= 1 || ultimaColumna === 0) {
+    return 0;
+  }
+  
+  var datos = hoja.getRange(2, 1, ultimaFila - 1, ultimaColumna).getValues();
+  var filasAEliminar = [];
+  
+  // Identificar filas completamente vacías
+  for (var i = 0; i < datos.length; i++) {
+    var filaVacia = true;
+    for (var j = 0; j < datos[i].length; j++) {
+      if (datos[i][j] !== '' && datos[i][j] !== null && datos[i][j] !== undefined) {
+        var valorStr = datos[i][j].toString().trim();
+        if (valorStr !== '') {
+          filaVacia = false;
+          break;
+        }
+      }
+    }
+    if (filaVacia) {
+      filasAEliminar.push(i + 2); // +2 porque: +1 por índice base-1, +1 por encabezado
+    }
+  }
+  
+  // Eliminar filas de abajo hacia arriba para no afectar índices
+  if (filasAEliminar.length > 0) {
+    for (var k = filasAEliminar.length - 1; k >= 0; k--) {
+      hoja.deleteRow(filasAEliminar[k]);
+    }
+  }
+  
+  return filasAEliminar.length;
+}
+
+/**
+ * Función de menú para ejecutar limpieza manual
+ */
+function limpiarFilasEnBlancoManual() {
+  var ui = SpreadsheetApp.getUi();
+  var respuesta = ui.alert(
+    '🧹 Limpiar Filas en Blanco',
+    '¿Deseas eliminar todas las filas completamente vacías de las hojas de ejecutivos?\n\n' +
+    'Esta acción no afectará las hojas del sistema (BBDD_REPORTE, RESUMEN, etc.)',
+    ui.ButtonSet.YES_NO
+  );
+  
+  if (respuesta !== ui.Button.YES) {
+    return;
+  }
+  
+  ui.alert('🔄 Procesando...', 'Eliminando filas en blanco. Esto puede tardar unos momentos.', ui.ButtonSet.OK);
+  
+  try {
+    var resultado = eliminarFilasEnBlancoTodasLasHojas();
+    
+    var mensaje = '✅ Limpieza completada\n\n';
+    mensaje += '🗑️ Filas eliminadas: ' + resultado.totalFilasEliminadas + '\n';
+    mensaje += '📋 Hojas procesadas: ' + resultado.hojasLimpiadas;
+    
+    ui.alert('✅ Completado', mensaje, ui.ButtonSet.OK);
+  } catch (error) {
+    ui.alert('❌ Error', 'Ocurrió un error durante la limpieza:\n\n' + error.message, ui.ButtonSet.OK);
+  }
 }

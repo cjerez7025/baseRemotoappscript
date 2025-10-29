@@ -126,7 +126,8 @@ function crearOActualizarReporteAutomatico(ss) {
       nombres.push("'" + nombreHoja + "'!A2:" + ultimaCol);
     }
     
-    var formula = '={' + nombres.join(';') + '}';
+    //var formula = '={' + nombres.join(';') + '}';
+    var formula = '=SORT({' + nombres.join(';') + '};3;TRUE)';
     
     Logger.log('Fórmula generada con ' + nombres.length + ' referencias de hojas');
     Logger.log('Longitud de fórmula: ' + formula.length + ' caracteres');
