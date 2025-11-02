@@ -5,7 +5,7 @@
 
 // CONFIGURACIÓN DE SEGURIDAD
 const CONFIG_SEGURIDAD = {
-  PASSWORD: 'Admin2025', // Cambia esta contraseña por la que desees
+  PASSWORD: 'Admin2025',
   INTENTOS_MAXIMOS: 3,
   MENSAJE_ACCESO_DENEGADO: '🔒 Acceso denegado. Contraseña incorrecta.'
 };
@@ -16,17 +16,14 @@ const CONFIG_SEGURIDAD = {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   
-  // Menú principal: Gestión de Ejecutivos (PROTEGIDO)
   ui.createMenu('Gestión de Supervisores')
     .addItem('🔐 Acceder al Panel de Supervisores', 'solicitarAccesoGestion')
     .addToUi();
   
-  // Menú del Panel de Llamadas (SIN PROTECCIÓN)
   ui.createMenu('📞 Panel de Llamadas')
     .addItem('Abrir Panel', 'mostrarPanel')
     .addToUi();
   
-  // Generar resumen automáticamente
   generateSummary();
   crearTablaLlamadas();
   ordenarHojasPorGrupo();
@@ -47,7 +44,6 @@ function solicitarAccesoGestion() {
       ui.ButtonSet.OK_CANCEL
     );
     
-    // Si el usuario cancela
     if (response.getSelectedButton() !== ui.Button.OK) {
       ui.alert('❌ Acceso cancelado');
       return;
@@ -55,7 +51,6 @@ function solicitarAccesoGestion() {
     
     const passwordIngresado = response.getResponseText();
     
-    // Verificar contraseña
     if (passwordIngresado === CONFIG_SEGURIDAD.PASSWORD) {
       ui.alert('✅ Acceso concedido', 'Bienvenido al panel de Gestión de Supervisores', ui.ButtonSet.OK);
       mostrarMenuGestion();
@@ -68,7 +63,7 @@ function solicitarAccesoGestion() {
     if (intentosRestantes > 0) {
       ui.alert(
         '❌ Contraseña incorrecta',
-        `Te quedan ${intentosRestantes} intento(s)`,
+        'Te quedan ' + intentosRestantes + ' intento(s)',
         ui.ButtonSet.OK
       );
     } else {
@@ -187,6 +182,8 @@ function mostrarFuncionesIndividuales() {
     '8 - Aplicar Protección (Solo Hoja Actual)\n' +
     '9 - Eliminar Protecciones (Hoja Actual)\n' +
     '10 - Ordenar Hojas\n' +
+    '11 - Regenerar Hoja PRODUCTIVIDAD\n' +
+    '12 - Regenerar Hoja LLAMADAS\n' +
     '0 - Volver al menú anterior',
     ui.ButtonSet.OK_CANCEL
   );
@@ -249,6 +246,16 @@ function mostrarFuncionesIndividuales() {
       ui.alert('✅ Hojas ordenadas', 'Las hojas han sido ordenadas correctamente', ui.ButtonSet.OK);
       break;
       
+    case '11':
+      crearHojaProductividad();
+      ui.alert('✅ PRODUCTIVIDAD regenerada', 'La hoja PRODUCTIVIDAD ha sido regenerada con éxito', ui.ButtonSet.OK);
+      break;
+      
+    case '12':
+      crearTablaLlamadas();
+      ui.alert('✅ LLAMADAS regenerada', 'La hoja LLAMADAS ha sido regenerada con éxito', ui.ButtonSet.OK);
+      break;
+      
     case '0':
       mostrarOpcionesGestion();
       return;
@@ -268,7 +275,6 @@ function registrarIntentoFallido() {
     const usuario = Session.getActiveUser().getEmail();
     const fecha = new Date();
     
-    // Intenta registrar en una hoja de logs si existe
     let logSheet = ss.getSheetByName('LOGS_ACCESO');
     if (!logSheet) {
       logSheet = ss.insertSheet('LOGS_ACCESO');
@@ -289,7 +295,6 @@ function registrarIntentoFallido() {
 function cambiarPassword() {
   const ui = SpreadsheetApp.getUi();
   
-  // Solicitar contraseña actual
   const responseActual = ui.prompt(
     '🔐 Cambiar Contraseña',
     'Ingresa la contraseña actual:',
@@ -305,7 +310,6 @@ function cambiarPassword() {
     return;
   }
   
-  // Solicitar nueva contraseña
   const responseNueva = ui.prompt(
     '🔐 Nueva Contraseña',
     'Ingresa la nueva contraseña:',
@@ -323,7 +327,6 @@ function cambiarPassword() {
     return;
   }
   
-  // Confirmar nueva contraseña
   const responseConfirmar = ui.prompt(
     '🔐 Confirmar Contraseña',
     'Confirma la nueva contraseña:',
