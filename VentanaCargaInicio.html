@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Google Sans', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .loading-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .spinner-container {
+            margin-bottom: 24px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #202124;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #5f6368;
+            margin-bottom: 24px;
+        }
+
+        .progress-container {
+            background: #f1f3f4;
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: #5f6368;
+            margin-bottom: 8px;
+        }
+
+        .tasks-list {
+            text-align: left;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e8eaed;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 13px;
+            color: #5f6368;
+        }
+
+        .task-item.completed {
+            color: #1e8e3e;
+        }
+
+        .task-item.processing {
+            color: #1a73e8;
+            font-weight: 500;
+        }
+
+        .task-icon {
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        .success-container {
+            display: none;
+        }
+
+        .success-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .close-button {
+            margin-top: 24px;
+            padding: 12px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .close-button:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <!-- Estado de Carga -->
+        <div id="loading-state">
+            <div class="spinner-container">
+                <div class="spinner"></div>
+            </div>
+            <div class="title">🚀 Inicializando Sistema CRM</div>
+            <div class="subtitle">Por favor espera mientras preparamos todo...</div>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            
+            <div class="status-text" id="status-text">Iniciando...</div>
+            
+            <div class="tasks-list">
+                <div class="task-item" id="task-1">
+                    <span class="task-icon">⏳</span>
+                    <span>Generando resumen</span>
+                </div>
+                <div class="task-item" id="task-2">
+                    <span class="task-icon">⏳</span>
+                    <span>Creando tabla de llamadas</span>
+                </div>
+                <div class="task-item" id="task-3">
+                    <span class="task-icon">⏳</span>
+                    <span>Ordenando hojas</span>
+                </div>
+                <div class="task-item" id="task-4">
+                    <span class="task-icon">⏳</span>
+                    <span>Creando hoja productividad</span>
+                </div>
+                <div class="task-item" id="task-5">
+                    <span class="task-icon">⏳</span>
+                    <span>Finalizando configuración</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estado de Éxito (oculto inicialmente) -->
+        <div id="success-state" class="success-container">
+            <div class="success-icon">✅</div>
+            <div class="title">¡Sistema Listo!</div>
+            <div class="subtitle">Todas las funciones están disponibles</div>
+            <button class="close-button" onclick="cerrarVentana()">
+                Comenzar a trabajar
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let tareaActual = 0;
+        const totalTareas = 5;
+
+        // Función para actualizar progreso desde Apps Script
+        function actualizarProgreso(tarea, mensaje) {
+            const taskItem = document.getElementById('task-' + tarea);
+            
+            if (taskItem) {
+                const icon = taskItem.querySelector('.task-icon');
+                
+                // Marcar tareas anteriores como completadas
+                for (let i = 1; i < tarea; i++) {
+                    const prevTask = document.getElementById('task-' + i);
+                    if (prevTask && !prevTask.classList.contains('completed')) {
+                        prevTask.querySelector('.task-icon').textContent = '✅';
+                        prevTask.classList.remove('processing');
+                        prevTask.classList.add('completed');
+                    }
+                }
+                
+                // Actualizar tarea actual
+                icon.textContent = '🔄';
+                taskItem.classList.add('processing');
+                
+                tareaActual = tarea;
+                const progreso = (tareaActual / totalTareas) * 100;
+                document.getElementById('progress-bar').style.width = progreso + '%';
+                document.getElementById('status-text').textContent = mensaje;
+            }
+        }
+
+        // Función para completar una tarea
+        function completarTarea(tarea) {
+            const taskItem = document.getElementById('task-' + tarea);
+            
+            if (taskItem) {
+                const icon = taskItem.querySelector('.task-icon');
+                icon.textContent = '✅';
+                taskItem.classList.remove('processing');
+                taskItem.classList.add('completed');
+            }
+        }
+
+        // Función para finalizar todo el proceso
+        function finalizarInicializacion() {
+            // Completar todas las tareas
+            for (let i = 1; i <= totalTareas; i++) {
+                completarTarea(i);
+            }
+            
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('status-text').textContent = '✅ Inicialización completa';
+            
+            // Esperar un momento antes de mostrar éxito
+            setTimeout(() => {
+                mostrarExito();
+            }, 800);
+        }
+
+        function mostrarExito() {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('success-state').style.display = 'block';
+            
+            // Auto-cerrar después de 3 segundos
+            setTimeout(() => {
+                cerrarVentana();
+            }, 3000);
+        }
+
+        function cerrarVentana() {
+            google.script.host.close();
+        }
+
+        // Polling para verificar el estado (cada 500ms)
+        let intervalo = setInterval(() => {
+            google.script.run
+                .withSuccessHandler(function(estado) {
+                    if (estado && estado.tarea) {
+                        actualizarProgreso(estado.tarea, estado.mensaje);
+                        
+                        // Si terminó, finalizar
+                        if (estado.completado) {
+                            clearInterval(intervalo);
+                            finalizarInicializacion();
+                        }
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    console.error('Error obteniendo estado:', error);
+                })
+                .obtenerEstadoInicializacion();
+        }, 500);
+    </script>
+</body>
+</html>

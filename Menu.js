@@ -12,22 +12,351 @@ const CONFIG_SEGURIDAD = {
 
 /**
  * Función que se ejecuta al abrir la hoja
+ * NOTA: onOpen() tiene restricciones de seguridad, no puede mostrar diálogos
  */
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   
+  // Menú de Gestión de Supervisores (con contraseña)
   ui.createMenu('Gestión de Supervisores')
     .addItem('🔐 Acceder al Panel de Supervisores', 'solicitarAccesoGestion')
     .addToUi();
   
+  // Menú de Panel de Llamadas (sin contraseña)
   ui.createMenu('📞 Panel de Llamadas')
     .addItem('Abrir Panel', 'mostrarPanel')
     .addToUi();
   
-  generateSummary();
-  crearTablaLlamadas();
-  ordenarHojasPorGrupo();
-  crearHojaProductividad();
+  // Menú de Navegación (sin contraseña - para todos)
+  ui.createMenu('🗂️ Navegación')
+    .addItem('📋 Abrir Panel de Navegación', 'mostrarPanelNavegacion')
+    .addSeparator()
+    .addItem('🔍 Diagnóstico de Hojas', 'diagnosticarHojas')
+    .addItem('📊 Ordenar Hojas', 'ordenarHojasAutomaticamente')
+    .addToUi();
+  
+  // NUEVO: Menú para inicialización manual
+  ui.createMenu('⚙️ Sistema')
+    .addItem('🚀 Inicializar Sistema (con ventana)', 'inicializarSistemaConVentana')
+    .addSeparator()
+    .addItem('🔧 Instalar Trigger Automático', 'instalarTriggerOnOpen')
+    .addItem('🗑️ Desinstalar Trigger Automático', 'desinstalarTriggerOnOpen')
+    .addToUi();
+  
+  // DESHABILITADO: No ejecutar inicialización automática en onOpen
+  // Causa conflictos con hojas que se están creando/eliminando
+  // Los usuarios deben usar el trigger instalable o inicializar manualmente
+  
+  Logger.log('✓ Menús cargados. Sistema listo.');
+}
+
+/**
+ * Ejecuta inicialización en segundo plano sin ventanas
+ * Esta se ejecuta automáticamente desde onOpen()
+ */
+function ejecutarInicializacionSilenciosa() {
+  try {
+    Logger.log('=== INICIALIZACIÓN SILENCIOSA ===');
+    Logger.log('Fecha: ' + new Date());
+    
+    generarResumenSeguro();
+    crearTablaLlamadas();
+    ordenarHojasPorGrupo();
+    crearHojaProductividad();
+    
+    Logger.log('✓ Sistema inicializado correctamente');
+    
+  } catch (error) {
+    Logger.log('❌ Error en inicialización: ' + error.toString());
+  }
+}
+
+/**
+ * NUEVA FUNCIÓN: Inicializa el sistema CON ventana de progreso
+ * Esta función SÍ puede mostrar ventanas porque es activada por el usuario
+ */
+function inicializarSistemaConVentana() {
+  try {
+    // Resetear estado
+    guardarEstadoInicializacion({ tarea: 0, mensaje: 'Iniciando...', completado: false });
+    
+    // Mostrar ventana de carga
+    const html = HtmlService.createHtmlOutputFromFile('VentanaCargaInicio')
+      .setWidth(450)
+      .setHeight(500);
+    
+    SpreadsheetApp.getUi().showModelessDialog(html, 'Inicializando Sistema');
+    
+    // Pequeño delay para que se muestre la ventana
+    SpreadsheetApp.flush();
+    Utilities.sleep(300);
+    
+    // TAREA 1: Generar Resumen
+    guardarEstadoInicializacion({ tarea: 1, mensaje: 'Generando resumen...', completado: false });
+    generarResumenSeguro();
+    Utilities.sleep(500);
+    
+    // TAREA 2: Crear Tabla de Llamadas
+    guardarEstadoInicializacion({ tarea: 2, mensaje: 'Creando tabla de llamadas...', completado: false });
+    crearTablaLlamadas();
+    Utilities.sleep(500);
+    
+    // TAREA 3: Ordenar Hojas
+    guardarEstadoInicializacion({ tarea: 3, mensaje: 'Ordenando hojas...', completado: false });
+    ordenarHojasPorGrupo();
+    Utilities.sleep(500);
+    
+    // TAREA 4: Crear Hoja Productividad
+    guardarEstadoInicializacion({ tarea: 4, mensaje: 'Creando hoja de productividad...', completado: false });
+    crearHojaProductividad();
+    Utilities.sleep(500);
+    
+    // TAREA 5: Finalizar
+    guardarEstadoInicializacion({ tarea: 5, mensaje: 'Finalizando configuración...', completado: false });
+    Utilities.sleep(500);
+    
+    // COMPLETADO
+    guardarEstadoInicializacion({ tarea: 5, mensaje: '✅ Sistema listo', completado: true });
+    
+    Logger.log('✓ Sistema inicializado con ventana');
+    
+  } catch (error) {
+    Logger.log('❌ Error: ' + error.toString());
+    guardarEstadoInicializacion({ tarea: 0, mensaje: 'Error: ' + error.message, completado: true });
+    SpreadsheetApp.getUi().alert('Error', 'Hubo un problema en la inicialización: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Guarda el estado actual de la inicialización en Properties
+ */
+function guardarEstadoInicializacion(estado) {
+  try {
+    const props = PropertiesService.getUserProperties();
+    props.setProperty('estadoInicializacion', JSON.stringify(estado));
+  } catch (error) {
+    Logger.log('Error guardando estado: ' + error.toString());
+  }
+}
+
+/**
+ * Obtiene el estado actual de la inicialización
+ * Esta función es llamada desde el HTML para actualizar la UI
+ */
+function obtenerEstadoInicializacion() {
+  try {
+    const props = PropertiesService.getUserProperties();
+    const estadoStr = props.getProperty('estadoInicializacion');
+    
+    if (estadoStr) {
+      return JSON.parse(estadoStr);
+    }
+    
+    return { tarea: 0, mensaje: 'Iniciando...', completado: false };
+    
+  } catch (error) {
+    Logger.log('Error obteniendo estado: ' + error.toString());
+    return { tarea: 0, mensaje: 'Iniciando...', completado: false };
+  }
+}
+
+/**
+ * INSTALAR TRIGGER: Esta función instala un trigger que se ejecuta al abrir
+ * y SÍ puede mostrar ventanas
+ */
+function instalarTriggerOnOpen() {
+  try {
+    // Primero eliminar triggers existentes para evitar duplicados
+    desinstalarTriggerOnOpen();
+    
+    // Crear nuevo trigger
+    ScriptApp.newTrigger('inicializarSistemaConVentana')
+      .forSpreadsheet(SpreadsheetApp.getActive())
+      .onOpen()
+      .create();
+    
+    SpreadsheetApp.getUi().alert(
+      '✅ Trigger Instalado',
+      'Ahora el sistema se inicializará automáticamente con ventana de progreso cada vez que abras la hoja.\n\n' +
+      'Para desactivarlo, usa: Sistema → Desinstalar Trigger Automático',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    
+    Logger.log('✓ Trigger instalado correctamente');
+    
+  } catch (error) {
+    Logger.log('❌ Error instalando trigger: ' + error.toString());
+    SpreadsheetApp.getUi().alert('Error', 'No se pudo instalar el trigger: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * DESINSTALAR TRIGGER: Elimina el trigger automático
+ */
+function desinstalarTriggerOnOpen() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let eliminados = 0;
+    
+    for (let i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'inicializarSistemaConVentana') {
+        ScriptApp.deleteTrigger(triggers[i]);
+        eliminados++;
+      }
+    }
+    
+    if (eliminados > 0) {
+      SpreadsheetApp.getUi().alert(
+        '✅ Trigger Desinstalado',
+        'Se eliminaron ' + eliminados + ' trigger(s). Ya no se mostrará la ventana automáticamente al abrir.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      Logger.log('✓ ' + eliminados + ' trigger(s) eliminados');
+    } else {
+      SpreadsheetApp.getUi().alert(
+        'ℹ️ Sin Cambios',
+        'No había triggers instalados.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+    }
+    
+  } catch (error) {
+    Logger.log('❌ Error desinstalando trigger: ' + error.toString());
+  }
+}
+
+/**
+ * Ejecuta las funciones de inicialización en segundo plano
+ * CORREGIDO: Más tiempo de espera y validación de hojas
+ */
+function ejecutarInicializacionSilenciosa() {
+  try {
+    Logger.log('=== INICIALIZACIÓN SILENCIOSA ===');
+    Logger.log('Fecha: ' + new Date());
+    
+    // Esperar más tiempo para que el spreadsheet esté completamente cargado
+    Utilities.sleep(2000);
+    
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // PASO 1: Generar Resumen (si existe BBDD_REPORTE)
+    try {
+      Logger.log('1. Generando resumen...');
+      generarResumenSeguro();
+      SpreadsheetApp.flush(); // Forzar actualización
+      Utilities.sleep(1000);
+      Logger.log('✓ Resumen completado');
+    } catch (e) {
+      Logger.log('❌ Error en resumen: ' + e.toString());
+    }
+    
+    // PASO 2: Crear Tabla Llamadas
+    try {
+      Logger.log('2. Creando tabla llamadas...');
+      crearTablaLlamadasSegura();
+      SpreadsheetApp.flush();
+      Utilities.sleep(1000);
+      Logger.log('✓ Llamadas completada');
+    } catch (e) {
+      Logger.log('❌ Error en llamadas: ' + e.toString());
+    }
+    
+    // PASO 3: Crear Hoja Productividad
+    try {
+      Logger.log('3. Creando productividad...');
+      crearHojaProductividadSegura();
+      SpreadsheetApp.flush();
+      Utilities.sleep(1000);
+      Logger.log('✓ Productividad completada');
+    } catch (e) {
+      Logger.log('❌ Error en productividad: ' + e.toString());
+    }
+    
+    // PASO 4: Ordenar Hojas (al final)
+    try {
+      Logger.log('4. Ordenando hojas...');
+      ordenarHojasPorGrupo();
+      SpreadsheetApp.flush();
+      Logger.log('✓ Orden completado');
+    } catch (e) {
+      Logger.log('❌ Error ordenando: ' + e.toString());
+    }
+    
+    Logger.log('✅ Inicialización completada');
+    
+  } catch (error) {
+    Logger.log('❌ Error crítico: ' + error.toString());
+  }
+}
+
+/**
+ * Versión segura de crearTablaLlamadas
+ */
+function crearTablaLlamadasSegura() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var bddSheet = ss.getSheetByName('BBDD_REPORTE');
+    
+    if (!bddSheet || bddSheet.getLastRow() < 2) {
+      Logger.log('⚠️ BBDD_REPORTE no disponible o vacía');
+      return;
+    }
+    
+    crearTablaLlamadas();
+    
+  } catch (error) {
+    Logger.log('Error en crearTablaLlamadasSegura: ' + error.toString());
+  }
+}
+
+/**
+ * Versión segura de crearHojaProductividad
+ */
+function crearHojaProductividadSegura() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var bddSheet = ss.getSheetByName('BBDD_REPORTE');
+    
+    if (!bddSheet || bddSheet.getLastRow() < 2) {
+      Logger.log('⚠️ BBDD_REPORTE no disponible o vacía');
+      return;
+    }
+    
+    crearHojaProductividad();
+    
+  } catch (error) {
+    Logger.log('Error en crearHojaProductividadSegura: ' + error.toString());
+  }
+}
+
+/**
+ * Genera el resumen de forma segura (sin showModelessDialog)
+ * Esta versión NO muestra ventanas emergentes durante onOpen
+ */
+function generarResumenSeguro() {
+  try {
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const bddSheet = spreadsheet.getSheetByName('BBDD_REPORTE');
+    
+    if (!bddSheet) {
+      Logger.log('⚠️ BBDD_REPORTE no existe aún. Se omite generación de resumen.');
+      return;
+    }
+    
+    // VALIDAR que la hoja tenga datos antes de procesar
+    if (bddSheet.getLastRow() < 2) {
+      Logger.log('⚠️ BBDD_REPORTE está vacía. Se omite generación de resumen.');
+      return;
+    }
+    
+    // Llamar a la función de resumen pero sin mostrar notificaciones visuales
+    generarResumenAutomatico(spreadsheet);
+    Logger.log('✓ Resumen generado correctamente');
+    
+  } catch (error) {
+    Logger.log('❌ Error generando resumen: ' + error.toString());
+    // No lanzar el error para no interrumpir la inicialización
+  }
 }
 
 /**
@@ -130,7 +459,7 @@ function mostrarOpcionesGestion() {
       break;
       
     case '2':
-      generateSummary();
+      generateSummary(); // Aquí sí se puede usar porque es acción del usuario
       ui.alert('✅ Resumen generado', 'El resumen ha sido actualizado', ui.ButtonSet.OK);
       break;
       
@@ -202,31 +531,27 @@ function mostrarFuncionesIndividuales() {
       
     case '2':
       aplicarFormulasEstadoCompromiso();
-      ui.alert('✅ Fórmulas aplicadas', 'Las fórmulas de ESTADO_COMPROMISO han sido aplicadas', ui.ButtonSet.OK);
+      ui.alert('✅ Fórmulas aplicadas', 'Las fórmulas ESTADO_COMPROMISO han sido aplicadas', ui.ButtonSet.OK);
       break;
       
     case '3':
       verificarHojasEjecutivos();
-      ui.alert('✅ Verificación completada', 'Las hojas de ejecutivos han sido verificadas', ui.ButtonSet.OK);
+      ui.alert('✅ Verificación completa', 'Revisa el registro de ejecución (Logs)', ui.ButtonSet.OK);
       break;
       
     case '4':
       crearHojaReporte();
-      ui.alert('✅ Hoja creada', 'La hoja BBDD_REPORTE ha sido creada', ui.ButtonSet.OK);
+      ui.alert('✅ Hoja creada', 'BBDD_REPORTE ha sido creada', ui.ButtonSet.OK);
       break;
       
     case '5':
       actualizarReporte();
-      ui.alert('✅ Reporte actualizado', 'El reporte ha sido actualizado', ui.ButtonSet.OK);
+      ui.alert('✅ Reporte actualizado', 'BBDD_REPORTE ha sido actualizado', ui.ButtonSet.OK);
       break;
       
     case '6':
-      var resultado = aplicarProteccionTodasLasHojas(SpreadsheetApp.getActiveSpreadsheet());
-      ui.alert('✅ Protección aplicada', 
-               'Hojas protegidas: ' + resultado.protegidas + '\n' +
-               'Hojas saltadas: ' + resultado.saltadas + '\n' +
-               'Errores: ' + resultado.errores, 
-               ui.ButtonSet.OK);
+      aplicarProteccionTodasHojas();
+      ui.alert('✅ Protección aplicada', 'Todas las hojas han sido protegidas', ui.ButtonSet.OK);
       break;
       
     case '7':
@@ -234,26 +559,28 @@ function mostrarFuncionesIndividuales() {
       break;
       
     case '8':
-      ejecutarProteccionHojaActual();
+      aplicarProteccionHojaActual();
+      ui.alert('✅ Protección aplicada', 'La hoja actual ha sido protegida', ui.ButtonSet.OK);
       break;
       
     case '9':
-      eliminarTodasLasProtecciones();
+      eliminarProteccionesHojaActual();
+      ui.alert('✅ Protecciones eliminadas', 'Las protecciones de la hoja actual han sido eliminadas', ui.ButtonSet.OK);
       break;
       
     case '10':
-      ordenarHojasPorGrupo();
+      ordenarHojasAutomaticamente2024();
       ui.alert('✅ Hojas ordenadas', 'Las hojas han sido ordenadas correctamente', ui.ButtonSet.OK);
       break;
       
     case '11':
       crearHojaProductividad();
-      ui.alert('✅ PRODUCTIVIDAD regenerada', 'La hoja PRODUCTIVIDAD ha sido regenerada con éxito', ui.ButtonSet.OK);
+      ui.alert('✅ PRODUCTIVIDAD regenerada', 'La hoja PRODUCTIVIDAD ha sido regenerada', ui.ButtonSet.OK);
       break;
       
     case '12':
       crearTablaLlamadas();
-      ui.alert('✅ LLAMADAS regenerada', 'La hoja LLAMADAS ha sido regenerada con éxito', ui.ButtonSet.OK);
+      ui.alert('✅ LLAMADAS regenerada', 'La hoja LLAMADAS ha sido regenerada', ui.ButtonSet.OK);
       break;
       
     case '0':
@@ -267,36 +594,26 @@ function mostrarFuncionesIndividuales() {
 }
 
 /**
- * Registra intentos fallidos de acceso (opcional)
+ * Registra intento fallido de acceso
  */
 function registrarIntentoFallido() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const usuario = Session.getActiveUser().getEmail();
+    const email = Session.getActiveUser().getEmail();
     const fecha = new Date();
-    
-    let logSheet = ss.getSheetByName('LOGS_ACCESO');
-    if (!logSheet) {
-      logSheet = ss.insertSheet('LOGS_ACCESO');
-      logSheet.getRange('A1:C1').setValues([['Fecha', 'Usuario', 'Evento']]);
-      logSheet.getRange('A1:C1').setFontWeight('bold');
-    }
-    
-    logSheet.appendRow([fecha, usuario, 'Intento fallido de acceso a Gestión de Supervisores']);
-    
-  } catch (e) {
-    console.log('Error al registrar intento fallido: ' + e.toString());
+    Logger.log('Intento fallido de acceso - Usuario: ' + email + ' - Fecha: ' + fecha);
+  } catch (error) {
+    Logger.log('Error registrando intento fallido: ' + error.toString());
   }
 }
 
 /**
- * Función para cambiar la contraseña (solo para administradores)
+ * Cambiar contraseña (requiere contraseña actual)
  */
-function cambiarPassword() {
+function cambiarContrasena() {
   const ui = SpreadsheetApp.getUi();
   
   const responseActual = ui.prompt(
-    '🔐 Cambiar Contraseña',
+    '🔐 Contraseña Actual',
     'Ingresa la contraseña actual:',
     ui.ButtonSet.OK_CANCEL
   );

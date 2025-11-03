@@ -1,14 +1,11 @@
 /**
- * ARCHIVO: Reparallamadas.js
- * Gestión de la hoja LLAMADAS con métricas y gráfico de progreso
- * VERSIÓN CORREGIDA - Gráfico de columnas verticales agrupadas FUNCIONAL
+ * ARCHIVO COMPLETO: Reparallamadas.js
+ * Gestión de la hoja LLAMADAS con métricas y gráfico
+ * VERSIÓN CORREGIDA - Elimina automáticamente la hoja si existe
  */
 
 console.log('✓ Reparallamadas.js cargado');
 
-/**
- * Crea tabla LLAMADAS con UNIQUE+TRANSPOSE en N2 para fechas dinámicas
- */
 function crearTablaLlamadas() {
   console.log('>>> Iniciando crearTablaLlamadas');
   
@@ -21,12 +18,21 @@ function crearTablaLlamadas() {
       return;
     }
     
+    // ELIMINAR SI EXISTE (sin preguntar)
     var llamadasSheet = spreadsheet.getSheetByName('LLAMADAS');
     if (llamadasSheet) {
-      spreadsheet.deleteSheet(llamadasSheet);
+      console.log('⚠️ Hoja LLAMADAS existe. Eliminando...');
+      try {
+        spreadsheet.deleteSheet(llamadasSheet);
+        console.log('✓ Hoja anterior eliminada');
+      } catch (deleteError) {
+        llamadasSheet.clear();
+        console.log('✓ Hoja limpiada');
+      }
     }
     
     llamadasSheet = spreadsheet.insertSheet('LLAMADAS');
+    console.log('✓ Nueva hoja LLAMADAS creada');
     
     var datos = bddSheet.getDataRange().getValues();
     var headers = datos[0];
@@ -39,7 +45,6 @@ function crearTablaLlamadas() {
       return;
     }
     
-    // Recopilar ejecutivos y fechas únicas
     var ejecutivosSet = new Set();
     var fechasSet = new Set();
     
@@ -61,13 +66,12 @@ function crearTablaLlamadas() {
     var ejecutivos = Array.from(ejecutivosSet).sort();
     var fechas = Array.from(fechasSet).sort(function(a, b) { return new Date(a) - new Date(b); });
     
-    // Obtener fecha actual (sin hora)
     var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     var fechaHoyStr = formatearFecha(hoy);
     
     if (ejecutivos.length === 0) {
-      console.log('No hay ejecutivos en BBDD_REPORTE');
+      console.log('No hay ejecutivos');
       llamadasSheet.getRange(1, 1).setValue('CUENTA de rut_cliente');
       llamadasSheet.getRange(1, 2).setValue('FECHA_LLAMADA');
       llamadasSheet.getRange(2, 1).setValue('EJECUTIVO');
@@ -79,37 +83,30 @@ function crearTablaLlamadas() {
         .setFontWeight('bold')
         .setHorizontalAlignment('center');
       llamadasSheet.autoResizeColumns(1, 5);
-      console.log('✓ Tabla LLAMADAS creada (sin datos)');
       return;
     }
     
-    // FILA 1: Encabezados principales
+    // ESTRUCTURA BÁSICA
     llamadasSheet.getRange(1, 1).setValue('CUENTA de rut_cliente');
     llamadasSheet.getRange(1, 2).setValue('FECHA_LLAMADA');
-    
-    // FILA 2: EJECUTIVO + Fechas
     llamadasSheet.getRange(2, 1).setValue('EJECUTIVO');
-    
-    var formulaUnique = '=TRANSPOSE(UNIQUE(FILTER(BBDD_REPORTE!$N$2:$N;BBDD_REPORTE!$N$2:$N<>"")))';
-    llamadasSheet.getRange(2, 2).setFormula(formulaUnique);
+    llamadasSheet.getRange(2, 2).setFormula('=TRANSPOSE(UNIQUE(FILTER(BBDD_REPORTE!$N$2:$N;BBDD_REPORTE!$N$2:$N<>"")))');
     
     var numColumnasConDatos = fechas.length > 0 ? fechas.length : 0;
     var numColumnasBuffer = 2;
     var totalColumnasFormulas = numColumnasConDatos + numColumnasBuffer;
-    
     var colSumaHeader = 2 + totalColumnasFormulas;
+    
     llamadasSheet.getRange(2, colSumaHeader).setValue('Suma total');
     
-    // FILA 3: Separador
     var maxCols = Math.max(colSumaHeader, 15);
     llamadasSheet.getRange(3, 1, 1, maxCols).setBackground('#E8E8E8');
     
-    // FILAS DE DATOS
+    // EJECUTIVOS
+    var filaEjecutivos = 4;
     for (var i = 0; i < ejecutivos.length; i++) {
-      var fila = i + 4;
-      var ejecutivo = ejecutivos[i];
-      
-      llamadasSheet.getRange(fila, 1).setValue(ejecutivo);
+      var fila = filaEjecutivos + i;
+      llamadasSheet.getRange(fila, 1).setValue(ejecutivos[i]);
       
       for (var j = 0; j < totalColumnasFormulas; j++) {
         var columna = j + 2;
@@ -124,14 +121,14 @@ function crearTablaLlamadas() {
       llamadasSheet.getRange(fila, colSumaHeader).setFormula(formulaSum);
     }
     
-    // FILA DE TOTALES
-    var filaTotal = ejecutivos.length + 4;
+    // TOTALES
+    var filaTotal = ejecutivos.length + filaEjecutivos;
     llamadasSheet.getRange(filaTotal, 1).setValue('Suma total');
     
     for (var j = 0; j < totalColumnasFormulas; j++) {
       var columna = j + 2;
       var letraCol = columnNumberToLetter(columna);
-      var formula = '=SUM(' + letraCol + '4:' + letraCol + (ejecutivos.length + 3) + ')';
+      var formula = '=SUM(' + letraCol + filaEjecutivos + ':' + letraCol + (ejecutivos.length + filaEjecutivos - 1) + ')';
       llamadasSheet.getRange(filaTotal, columna).setFormula(formula);
     }
     
@@ -140,7 +137,7 @@ function crearTablaLlamadas() {
     llamadasSheet.getRange(filaTotal, colSumaHeader)
       .setFormula('=SUM(' + letraFirst + filaTotal + ':' + letraLast + filaTotal + ')');
     
-    // FORMATO BASE
+    // FORMATO
     var maxColsFormat = Math.max(colSumaHeader, 28);
     
     llamadasSheet.getRange(1, 1, 2, maxColsFormat)
@@ -159,11 +156,10 @@ function crearTablaLlamadas() {
       .setBorder(true, true, true, true, true, true);
     
     if (ejecutivos.length > 0) {
-      llamadasSheet.getRange(4, 2, ejecutivos.length, totalColumnasFormulas)
+      llamadasSheet.getRange(filaEjecutivos, 2, ejecutivos.length, totalColumnasFormulas)
         .setHorizontalAlignment('center');
     }
     
-    // AUTO-AJUSTAR COLUMNAS
     llamadasSheet.autoResizeColumn(1);
     
     if (numColumnasConDatos > 0) {
@@ -182,15 +178,13 @@ function crearTablaLlamadas() {
     
     llamadasSheet.autoResizeColumn(colSumaHeader);
     
-    console.log('✓ Columnas buffer con ancho fijo: ' + anchoBuffer + 'px');
-    
-    // RESALTAR COLUMNA DE FECHA ACTUAL
+    // RESALTAR HOY
     SpreadsheetApp.flush();
     Utilities.sleep(1000);
     
     var fechasGeneradas = llamadasSheet.getRange(2, 2, 1, totalColumnasFormulas).getValues()[0];
-    
     var columnaHoy = -1;
+    
     for (var j = 0; j < fechasGeneradas.length; j++) {
       if (fechasGeneradas[j]) {
         var fechaCell = fechasGeneradas[j];
@@ -215,7 +209,7 @@ function crearTablaLlamadas() {
         .setFontWeight('bold');
       
       if (ejecutivos.length > 0) {
-        llamadasSheet.getRange(4, columnaHoy, ejecutivos.length, 1)
+        llamadasSheet.getRange(filaEjecutivos, columnaHoy, ejecutivos.length, 1)
           .setBackground('#FFF2CC');
       }
       
@@ -223,33 +217,27 @@ function crearTablaLlamadas() {
         .setBackground('#FFD966')
         .setFontWeight('bold');
       
-      console.log('✓ Columna de fecha actual resaltada');
+      console.log('✓ Columna HOY resaltada');
     }
     
     console.log('✓ Tabla LLAMADAS creada');
     console.log('Ejecutivos: ' + ejecutivos.length);
     console.log('Fechas: ' + fechas.length);
     
-    // CREAR GRÁFICO
-    console.log('Generando tabla de métricas y gráfico...');
     SpreadsheetApp.flush();
     Utilities.sleep(500);
     
     crearGraficoProgresoLlamadas();
     
-    console.log('✅ Proceso completo finalizado');
+    console.log('✅ Proceso completo');
     
   } catch (error) {
-    console.error('❌ Error en crearTablaLlamadas: ' + error.message);
+    console.error('❌ Error: ' + error.message);
     console.error(error.stack);
     throw error;
   }
 }
 
-/**
- * Crea tabla de métricas y gráfico de columnas agrupadas
- * CORREGIDO: Usa rangos separados correctamente
- */
 function crearGraficoProgresoLlamadas() {
   console.log('>>> Iniciando crearGraficoProgresoLlamadas');
   
@@ -259,14 +247,13 @@ function crearGraficoProgresoLlamadas() {
     var bddSheet = spreadsheet.getSheetByName('BBDD_REPORTE');
     
     if (!llamadasSheet || !bddSheet) {
-      console.log('Error: No existen las hojas necesarias');
+      console.log('Error: Hojas no encontradas');
       return;
     }
     
     var datos = llamadasSheet.getDataRange().getValues();
-    
-    // Encontrar columna "Suma total"
     var colSumaTotal = -1;
+    
     for (var col = 0; col < datos[1].length; col++) {
       if (datos[1][col] === 'Suma total') {
         colSumaTotal = col;
@@ -275,16 +262,15 @@ function crearGraficoProgresoLlamadas() {
     }
     
     if (colSumaTotal === -1) {
-      console.log('Error: No se encontró columna Suma total');
+      console.log('Error: Columna Suma total no encontrada');
       return;
     }
     
-    // Recopilar ejecutivos
     var ejecutivos = [];
-    var filaInicio = 3;
+    var filaInicio = 4;
     var filaUltimoEjecutivo = filaInicio;
     
-    for (var i = filaInicio; i < datos.length; i++) {
+    for (var i = filaInicio - 1; i < datos.length; i++) {
       var ejecutivo = datos[i][0];
       if (ejecutivo && ejecutivo !== 'Suma total') {
         ejecutivos.push({
@@ -298,35 +284,29 @@ function crearGraficoProgresoLlamadas() {
     }
     
     if (ejecutivos.length === 0) {
-      console.log('No hay ejecutivos en la tabla');
+      console.log('No hay ejecutivos');
       return;
     }
     
-    // Obtener columna EJECUTIVO de BBDD_REPORTE
     var headers = bddSheet.getRange(1, 1, 1, bddSheet.getLastColumn()).getValues()[0];
     var ejecutivoIndex = headers.indexOf('EJECUTIVO');
     
     if (ejecutivoIndex === -1) {
-      console.log('Error: No se encontró columna EJECUTIVO en BBDD_REPORTE');
+      console.log('Error: Columna EJECUTIVO no encontrada');
       return;
     }
     
     var colEjecutivoBBDD = columnNumberToLetter(ejecutivoIndex + 1);
-    
-    // UBICACIÓN: DEBAJO DE LA TABLA
     var filaInicioMetricas = filaUltimoEjecutivo + 3;
     var colInicioMetricas = 1;
     
-    // Título
     llamadasSheet.getRange(filaInicioMetricas, colInicioMetricas)
       .setValue('📊 PROGRESO DE LLAMADAS POR EJECUTIVO')
       .setFontSize(14)
       .setFontWeight('bold')
       .setBackground('#F3F3F3');
     
-    // CREAR TABLA DE MÉTRICAS
     var filaEncabezadosMetricas = filaInicioMetricas + 2;
-    
     var encabezadosMetricas = ['EJECUTIVO', 'META', 'LLAMADAS', '% AVANCE', 'PENDIENTE'];
     
     llamadasSheet.getRange(filaEncabezadosMetricas, colInicioMetricas, 1, encabezadosMetricas.length)
@@ -336,7 +316,6 @@ function crearGraficoProgresoLlamadas() {
       .setFontWeight('bold')
       .setHorizontalAlignment('center');
     
-    // Datos de la tabla
     for (var i = 0; i < ejecutivos.length; i++) {
       var fila = filaEncabezadosMetricas + 1 + i;
       var ejecutivo = ejecutivos[i];
@@ -358,7 +337,6 @@ function crearGraficoProgresoLlamadas() {
       llamadasSheet.getRange(fila, colInicioMetricas + 4).setFormula(formulaPendiente);
     }
     
-    // Fila de TOTALES
     var filaTotalMetricas = filaEncabezadosMetricas + 1 + ejecutivos.length;
     llamadasSheet.getRange(filaTotalMetricas, colInicioMetricas).setValue('TOTAL');
     
@@ -395,50 +373,19 @@ function crearGraficoProgresoLlamadas() {
       llamadasSheet.autoResizeColumn(col);
     }
     
-    // ESPERAR A QUE SE CALCULEN LAS FÓRMULAS
     SpreadsheetApp.flush();
     Utilities.sleep(2000);
     
-    // LEER VALORES CALCULADOS PARA DEBUG
-    console.log('=== VERIFICANDO DATOS PARA EL GRÁFICO ===');
-    var datosMetricas = llamadasSheet.getRange(filaEncabezadosMetricas, 1, ejecutivos.length + 1, 5).getValues();
-    for (var i = 0; i < Math.min(3, datosMetricas.length); i++) {
-      console.log('Fila ' + i + ': ' + JSON.stringify(datosMetricas[i]));
-    }
-    
-    // ELIMINAR GRÁFICOS ANTERIORES
     var charts = llamadasSheet.getCharts();
     for (var i = 0; i < charts.length; i++) {
       llamadasSheet.removeChart(charts[i]);
     }
-    console.log('Gráficos anteriores eliminados: ' + charts.length);
     
-    // CREAR GRÁFICO DE COLUMNAS AGRUPADAS
     var filaGrafico = filaTotalMetricas + 2;
-    
-    // Crear rango de datos para el gráfico (sin incluir fila TOTAL)
     var numFilasDatos = ejecutivos.length;
-    var filaPrimerDato = filaEncabezadosMetricas + 1;
     
-    console.log('Creando gráfico con ' + numFilasDatos + ' ejecutivos');
-    console.log('Fila encabezados: ' + filaEncabezadosMetricas);
-    console.log('Fila primer dato: ' + filaPrimerDato);
-    
-    // MÉTODO ALTERNATIVO: Crear DataTable manualmente
     try {
-      // Leer los datos calculados
-      var rangoDatos = llamadasSheet.getRange(filaEncabezadosMetricas, 1, numFilasDatos + 1, 5);
-      var valoresDatos = rangoDatos.getValues();
-      
-      console.log('Datos leídos para gráfico: ' + valoresDatos.length + ' filas');
-      
-      // Crear el gráfico con rango único
-      var rangoGrafico = llamadasSheet.getRange(
-        filaEncabezadosMetricas, 
-        1, 
-        numFilasDatos + 1, 
-        5
-      );
+      var rangoGrafico = llamadasSheet.getRange(filaEncabezadosMetricas, 1, numFilasDatos + 1, 5);
       
       var chart = llamadasSheet.newChart()
         .setChartType(Charts.ChartType.COLUMN)
@@ -450,115 +397,37 @@ function crearGraficoProgresoLlamadas() {
         .setOption('width', 1000)
         .setOption('height', 500)
         .setOption('colors', ['#34A853', '#4285F4', '#FBBC04', '#EA4335'])
-        .setOption('legend', {
-          position: 'top',
-          textStyle: {fontSize: 12, bold: true}
-        })
-        .setOption('hAxis', {
-          title: 'EJECUTIVO',
-          textStyle: {fontSize: 9},
-          slantedText: true,
-          slantedTextAngle: 45
-        })
-        .setOption('vAxis', {
-          title: 'Cantidad',
-          minValue: 0,
-          textStyle: {fontSize: 11}
-        })
-        .setOption('chartArea', {
-          width: '70%',
-          height: '55%',
-          left: 100,
-          top: 70,
-          bottom: 120
-        })
+        .setOption('legend', {position: 'top', textStyle: {fontSize: 12, bold: true}})
+        .setOption('hAxis', {title: 'EJECUTIVO', textStyle: {fontSize: 9}, slantedText: true, slantedTextAngle: 45})
+        .setOption('vAxis', {title: 'Cantidad', minValue: 0, textStyle: {fontSize: 11}})
+        .setOption('chartArea', {width: '70%', height: '55%', left: 100, top: 70, bottom: 120})
         .setOption('bar', {groupWidth: '60%'})
-        .setOption('titleTextStyle', {
-          fontSize: 16,
-          bold: true
-        })
-        .setOption('series', {
-          1: {  // META (columna B, índice 1)
-            type: 'line',
-            lineWidth: 2,
-            pointSize: 5,
-            color: '#34A853'
-          },
-          2: {  // LLAMADAS (columna C, índice 2)
-            type: 'bars',
-            color: '#4285F4'
-          },
-          4: {  // PENDIENTE (columna E, índice 4)
-            type: 'bars',
-            color: '#EA4335'
-          }
-        })
+        .setOption('titleTextStyle', {fontSize: 16, bold: true})
         .build();
       
       llamadasSheet.insertChart(chart);
-      console.log('✓ Gráfico insertado exitosamente');
+      console.log('✓ Gráfico creado');
       
     } catch (errorChart) {
       console.error('Error creando gráfico: ' + errorChart.message);
-      
-      // PLAN B: Crear gráfico con rangos específicos
-      console.log('Intentando método alternativo...');
-      
-      var chartAlt = llamadasSheet.newChart()
-        .setChartType(Charts.ChartType.COLUMN)
-        .addRange(llamadasSheet.getRange(filaEncabezadosMetricas, 1, numFilasDatos + 1, 1))  // EJECUTIVO
-        .addRange(llamadasSheet.getRange(filaEncabezadosMetricas, 3, numFilasDatos + 1, 1))  // LLAMADAS
-        .addRange(llamadasSheet.getRange(filaEncabezadosMetricas, 5, numFilasDatos + 1, 1))  // PENDIENTE
-        .setPosition(filaGrafico, colInicioMetricas, 0, 0)
-        .setNumHeaders(1)
-        .setOption('title', 'LLAMADAS y PENDIENTE')
-        .setOption('width', 1000)
-        .setOption('height', 500)
-        .setOption('colors', ['#4285F4', '#EA4335'])
-        .setOption('hAxis', {
-          slantedText: true,
-          slantedTextAngle: 45
-        })
-        .setOption('vAxis', {
-          minValue: 0
-        })
-        .setOption('chartArea', {
-          width: '75%',
-          height: '60%'
-        })
-        .build();
-      
-      llamadasSheet.insertChart(chartAlt);
-      console.log('✓ Gráfico alternativo insertado');
     }
     
-    console.log('✓ Gráfico creado exitosamente');
-    console.log('Tabla en fila: ' + filaEncabezadosMetricas);
-    console.log('Gráfico en fila: ' + filaGrafico);
+    console.log('✓ Gráfico completado');
     
   } catch (error) {
-    console.error('❌ Error en crearGraficoProgresoLlamadas: ' + error.message);
-    console.error(error.stack);
+    console.error('❌ Error: ' + error.message);
     throw error;
   }
 }
 
-/**
- * Formatea una fecha a string DD-MM-YYYY
- */
 function formatearFecha(fecha) {
   if (!(fecha instanceof Date)) return '';
-  
   var dia = String(fecha.getDate()).padStart(2, '0');
   var mes = String(fecha.getMonth() + 1).padStart(2, '0');
   var año = fecha.getFullYear();
-  
   return dia + '-' + mes + '-' + año;
 }
 
-/**
- * Convierte número de columna a letra (A, B, C, ..., Z, AA, AB, etc.)
- */
 function columnNumberToLetter(columnNumber) {
   var letter = '';
   while (columnNumber > 0) {
