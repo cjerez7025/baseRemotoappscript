@@ -1,6 +1,11 @@
 /**
- * MÓDULO 7: PROCESO PRINCIPAL
- * Orquesta todo el flujo de procesamiento
+ * MÓDULO 7: PROCESO PRINCIPAL CON PERFILAMIENTO
+ * Orquesta todo el flujo de procesamiento incluyendo CONFIG_PERFILES
+ * 
+ * MODIFICACIONES:
+ * - Agregada Etapa 11: Registro de perfiles
+ * - Agregada Etapa 12: Finalización
+ * - Detecta y registra ejecutivos automáticamente
  */
 
 /**
@@ -88,8 +93,6 @@ function ejecutarProcesoCompleto() {
       Utilities.sleep(200);
     }
     
-    // ETAPA 6 ELIMINADA - Ya no se aplica protección
-    
     // ETAPA 6: BBDD_REPORTE (70%)
     setProgreso(6, '🗃️ Generando BBDD_REPORTE...', 70, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
@@ -130,8 +133,8 @@ function ejecutarProcesoCompleto() {
       Logger.log('Error en PRODUCTIVIDAD: ' + e.toString());
     }
     
-    // ETAPA 10: Ordenar (95%)
-    setProgreso(10, '🗂️ Ordenando hojas...', 95, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 10: Ordenar (93%)
+    setProgreso(10, '🗂️ Ordenando hojas...', 93, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(500);
     
     try {
@@ -140,17 +143,65 @@ function ejecutarProcesoCompleto() {
       Logger.log('Error ordenando: ' + e.toString());
     }
     
-    // ETAPA 11: Finalización (100%)
-    setProgreso(11, '✅ Proceso completado', 100, ejecutivosArray.length, ejecutivosArray.length);
+    // ETAPA 11: Registro de Perfiles (96%)
+    setProgreso(11, '👥 Registrando perfiles en CONFIG_PERFILES...', 96, ejecutivosArray.length, ejecutivosArray.length);
+    Utilities.sleep(500);
+    Logger.log('=== REGISTRANDO PERFILES ===');
+    try {
+      // Detectar todos los ejecutivos creados
+      var hojasActuales = ss.getSheets();
+      var ejecutivosCreados = [];
+      
+      for (var k = 0; k < hojasActuales.length; k++) {
+        var nombreHoja = hojasActuales[k].getName();
+        
+        // Excluir hojas del sistema
+        var esExcluida = false;
+        for (var m = 0; m < HOJAS_EXCLUIDAS.length; m++) {
+          if (nombreHoja.indexOf(HOJAS_EXCLUIDAS[m]) !== -1) {
+            esExcluida = true;
+            break;
+          }
+        }
+        
+        if (esExcluida) continue;
+        if (/^BBDD_.*_REMOTO/i.test(nombreHoja)) continue;
+        
+        // Esta es una hoja de ejecutivo
+        if (hojasActuales[k].getLastRow() > 1) {
+          ejecutivosCreados.push(nombreHoja);
+        }
+      }
+      
+      Logger.log('Hojas de ejecutivos detectadas: ' + ejecutivosCreados.length);
+      
+      if (ejecutivosCreados.length > 0) {
+        var resultadoPerfiles = registrarEjecutivosEnConfig(ejecutivosCreados);
+        Logger.log('✓ Perfiles registrados: ' + resultadoPerfiles.nuevos + ' nuevos, ' + 
+                   resultadoPerfiles.actualizados + ' actualizados');
+        
+        // Limpiar cualquier entrada de CONFIG_PERFILES
+        limpiarConfigPerfilesDeListaEjecutivos();
+        
+        // Ocultar la hoja CONFIG_PERFILES
+        ocultarConfigPerfiles();
+      }
+    } catch (errorPerfil) {
+      Logger.log('⚠️ Error registrando perfiles (no crítico): ' + errorPerfil.toString());
+    }
+    
+    // ETAPA 12: Finalización (100%)
+    setProgreso(12, '✅ Proceso completado', 100, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(1500);
     
-    // Mensaje de éxito (SIN MENCIÓN DE PROTECCIÓN)
+    // Mensaje de éxito
     var msg = '✅ PROCESAMIENTO EXITOSO\n\n';
     msg += '📊 Ejecutivos: ' + ejecutivosArray.length + '\n';
     msg += '📋 BBDD_REPORTE creada\n';
     msg += '📈 RESUMEN generado\n';
     msg += '📞 LLAMADAS creada\n';
     msg += '📊 PRODUCTIVIDAD creada\n';
+    msg += '👥 CONFIG_PERFILES actualizado\n';
     msg += '🗂️ Hojas ordenadas';
     
     if (alertasEjecutivos.hojasHuerfanas.length > 0) {

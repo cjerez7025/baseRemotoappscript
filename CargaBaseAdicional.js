@@ -1,13 +1,12 @@
 /**
- * MÓDULO 9: CARGA DE BASE ADICIONAL - VERSIÓN FINAL CORREGIDA
+ * MÓDULO 9: CARGA DE BASE ADICIONAL - VERSIÓN CON PERFILAMIENTO
  * Permite cargar y distribuir datos desde un archivo Excel adicional
  * sin afectar la distribución inicial
  * 
- * CORRECCIONES:
- * - Las hojas nuevas se crean correctamente con datos
- * - Se ordenan las hojas al finalizar
- * - Se regenera PRODUCTIVIDAD con fórmulas dinámicas
- * - Se eliminan filas en blanco automáticamente
+ * NUEVAS CARACTERÍSTICAS:
+ * - Registro automático de perfiles en CONFIG_PERFILES
+ * - Detección de ejecutivos nuevos y existentes
+ * - Actualización de roles durante la carga adicional
  */
 
 // Etapas del proceso de carga adicional
@@ -23,8 +22,9 @@ const ETAPAS_CARGA_ADICIONAL = [
   { id: 9, nombre: 'RESUMEN', descripcion: 'Actualizando RESUMEN...', icono: '📈', porcentaje: 85 },
   { id: 10, nombre: 'LLAMADAS', descripcion: 'Actualizando LLAMADAS...', icono: '📞', porcentaje: 90 },
   { id: 11, nombre: 'PRODUCTIVIDAD', descripcion: 'Actualizando PRODUCTIVIDAD...', icono: '💼', porcentaje: 93 },
-  { id: 12, nombre: 'Ordenamiento', descripcion: 'Ordenando hojas...', icono: '🗂️', porcentaje: 96 },
-  { id: 13, nombre: 'Finalización', descripcion: 'Proceso completado', icono: '✅', porcentaje: 100 }
+  { id: 12, nombre: 'CONFIG_PERFILES', descripcion: 'Actualizando perfiles...', icono: '👥', porcentaje: 95 },
+  { id: 13, nombre: 'Ordenamiento', descripcion: 'Ordenando hojas...', icono: '🗂️', porcentaje: 97 },
+  { id: 14, nombre: 'Finalización', descripcion: 'Proceso completado', icono: '✅', porcentaje: 100 }
 ];
 
 function setProgresoCargaAdicional(etapaId, mensaje, porcentaje, actual, total) {
@@ -280,7 +280,6 @@ function procesarCargaAdicional(fileId) {
           var numColumnasHoja = encabezadosHoja.length;
           var numColsOriginales = determinarColumnasOriginales(encabezadosHoja);
           
-          // CRÍTICO: Encontrar columna EJECUTIVO
           var colEjecutivoEnHoja = -1;
           for (var buscarEjecHoja = 0; buscarEjecHoja < encabezadosHoja.length; buscarEjecHoja++) {
             var encHojaUpper = encabezadosHoja[buscarEjecHoja].toString().toUpperCase();
@@ -299,21 +298,19 @@ function procesarCargaAdicional(fileId) {
               fila.push('');
             }
             
-            // CORRECCIÓN: Normalizar nombre ejecutivo en hojas existentes también
             if (colEjecutivoEnHoja >= 0 && colEjecutivoEnHoja < fila.length) {
               fila[colEjecutivoEnHoja] = nombreEjecutivo.replace(/_/g, ' ').toUpperCase();
             }
             
-            // CORRECCIÓN: Agregar las 8 columnas del sistema correctamente
             fila = fila.concat([
-              '',                    // FECHA_GESTION
-              '',                    // HORA_GESTION
-              '',                    // CONTACTABILIDAD
-              'Sin Gestión',         // TIPIFICACION
-              'Sin Gestión',         // SUBTIPIFICACION
-              '',                    // COMPROMISO_PAGO
-              '',                    // MONTO_COMP
-              ''                     // OBSERVACIONES
+              '',
+              '',
+              '',
+              'Sin Gestión',
+              'Sin Gestión',
+              '',
+              '',
+              ''
             ]);
             datosExpandidos.push(fila);
           }
@@ -323,13 +320,11 @@ function procesarCargaAdicional(fileId) {
           actualizados++;
           Logger.log('✓ Agregados ' + datosEjecutivo.length + ' registros a hoja existente');
         } else {
-          // EJECUTIVO NUEVO: Usar función existente crearHojaEjecutivo()
           Logger.log('=== CREANDO NUEVA HOJA PARA EJECUTIVO NUEVO ===');
           Logger.log('Ejecutivo: ' + nombreEjecutivo);
           Logger.log('Número de registros: ' + datosEjecutivo.length);
           
           try {
-            // Usar la función que ya existe y funciona correctamente
             crearHojaEjecutivo(ss, nombreEjecutivo, datosEjecutivo, encabezados);
             
             nuevos++;
@@ -354,7 +349,6 @@ function procesarCargaAdicional(fileId) {
     Logger.log('Hojas nuevas: ' + nuevos);
     Logger.log('Errores: ' + errores);
     
-    // LIMPIEZA DE FILAS EN BLANCO
     setProgresoCargaAdicional(7, 'Eliminando filas en blanco...', 70, 0, 1);
     Utilities.sleep(500);
     Logger.log('=== ELIMINANDO FILAS EN BLANCO ===');
@@ -403,7 +397,50 @@ function procesarCargaAdicional(fileId) {
       Logger.log('❌ Error actualizando PRODUCTIVIDAD: ' + e.toString());
     }
     
-    setProgresoCargaAdicional(12, 'Ordenando hojas...', 96, 0, 1);
+    setProgresoCargaAdicional(12, 'Actualizando CONFIG_PERFILES...', 95, 0, 1);
+    Utilities.sleep(500);
+    Logger.log('=== REGISTRANDO PERFILES EN CONFIG_PERFILES ===');
+    try {
+      var hojasActuales = ss.getSheets();
+      var ejecutivosCreados = [];
+      
+      for (var k = 0; k < hojasActuales.length; k++) {
+        var nombreHoja = hojasActuales[k].getName();
+        
+        var esExcluida = false;
+        for (var m = 0; m < HOJAS_EXCLUIDAS.length; m++) {
+          if (nombreHoja.indexOf(HOJAS_EXCLUIDAS[m]) !== -1) {
+            esExcluida = true;
+            break;
+          }
+        }
+        
+        if (esExcluida) continue;
+        if (/^BBDD_.*_REMOTO/i.test(nombreHoja)) continue;
+        
+        if (hojasActuales[k].getLastRow() > 1) {
+          ejecutivosCreados.push(nombreHoja);
+        }
+      }
+      
+      Logger.log('Hojas de ejecutivos detectadas: ' + ejecutivosCreados.length);
+      
+      if (ejecutivosCreados.length > 0) {
+        var resultadoPerfiles = registrarEjecutivosEnConfig(ejecutivosCreados);
+        Logger.log('✓ Perfiles registrados: ' + resultadoPerfiles.nuevos + ' nuevos, ' + 
+                   resultadoPerfiles.actualizados + ' actualizados');
+        
+        // Limpiar cualquier entrada de CONFIG_PERFILES
+        limpiarConfigPerfilesDeListaEjecutivos();
+        
+        // Ocultar la hoja CONFIG_PERFILES
+        ocultarConfigPerfiles();
+      }
+    } catch (errorPerfil) {
+      Logger.log('⚠️ Error registrando perfiles (no crítico): ' + errorPerfil.toString());
+    }
+    
+    setProgresoCargaAdicional(13, 'Ordenando hojas...', 97, 0, 1);
     Utilities.sleep(500);
     try {
       ordenarHojasPorGrupo();
@@ -416,11 +453,12 @@ function procesarCargaAdicional(fileId) {
     var mensajeFinal = '✅ COMPLETADO\n\n';
     mensajeFinal += '📊 Registros: ' + agregados + '\n';
     mensajeFinal += '👥 Actualizados: ' + actualizados + '\n';
-    mensajeFinal += '✨ Nuevos: ' + nuevos;
+    mensajeFinal += '✨ Nuevos: ' + nuevos + '\n';
+    mensajeFinal += '🔄 CONFIG_PERFILES actualizado';
     if (errores > 0) {
       mensajeFinal += '\n⚠️ Errores: ' + errores;
     }
-    setProgresoCargaAdicional(13, mensajeFinal, 100, ejecutivosArray.length, ejecutivosArray.length);
+    setProgresoCargaAdicional(14, mensajeFinal, 100, ejecutivosArray.length, ejecutivosArray.length);
     Utilities.sleep(2000);
   } catch (error) {
     Logger.log('❌ Error en procesarCargaAdicional: ' + error.toString());
@@ -575,10 +613,6 @@ function extraerFileId(input) {
   return null;
 }
 
-/**
- * FUNCIÓN DE LIMPIEZA DE FILAS EN BLANCO
- * Elimina todas las filas completamente vacías de las hojas de ejecutivos
- */
 function eliminarFilasEnBlancoTodasLasHojas() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var hojas = ss.getSheets();
@@ -591,9 +625,8 @@ function eliminarFilasEnBlancoTodasLasHojas() {
     var hoja = hojas[i];
     var nombreHoja = hoja.getName();
     
-    // Excluir hojas del sistema
     var esExcluida = false;
-    var hojasExcluidas = ['BBDD_REPORTE', 'RESUMEN', 'LLAMADAS', 'PRODUCTIVIDAD', 'CONFIGURACION', 'PLANTILLA'];
+    var hojasExcluidas = ['BBDD_REPORTE', 'RESUMEN', 'LLAMADAS', 'PRODUCTIVIDAD', 'CONFIG_PERFILES', 'CONFIGURACION', 'PLANTILLA'];
     for (var j = 0; j < hojasExcluidas.length; j++) {
       if (nombreHoja.indexOf(hojasExcluidas[j]) !== -1) {
         esExcluida = true;
@@ -601,34 +634,47 @@ function eliminarFilasEnBlancoTodasLasHojas() {
       }
     }
     
-    // Excluir hojas remotas
     if (/^BBDD_.*_REMOTO/i.test(nombreHoja)) {
       esExcluida = true;
     }
     
-    if (esExcluida) {
-      Logger.log('⊘ Saltando hoja del sistema: ' + nombreHoja);
-      continue;
-    }
+    if (esExcluida) continue;
     
-    try {
-      Logger.log('Procesando: ' + nombreHoja);
-      var filasEliminadas = eliminarFilasEnBlancoHoja(hoja);
-      
-      if (filasEliminadas > 0) {
-        totalFilasEliminadas += filasEliminadas;
-        hojasLimpiadas++;
-        Logger.log('  ✓ ' + nombreHoja + ': ' + filasEliminadas + ' filas eliminadas');
-      } else {
-        Logger.log('  ○ ' + nombreHoja + ': Sin filas vacías');
+    if (hoja.getLastRow() > 1) {
+      try {
+        var ultimaFila = hoja.getLastRow();
+        var datos = hoja.getRange(2, 1, ultimaFila - 1, hoja.getLastColumn()).getValues();
+        var filasAEliminar = [];
+        
+        for (var fila = 0; fila < datos.length; fila++) {
+          var filaVacia = true;
+          for (var col = 0; col < datos[fila].length; col++) {
+            if (datos[fila][col] !== '' && datos[fila][col] !== null) {
+              filaVacia = false;
+              break;
+            }
+          }
+          if (filaVacia) {
+            filasAEliminar.push(fila + 2);
+          }
+        }
+        
+        if (filasAEliminar.length > 0) {
+          for (var idx = filasAEliminar.length - 1; idx >= 0; idx--) {
+            hoja.deleteRow(filasAEliminar[idx]);
+          }
+          totalFilasEliminadas += filasAEliminar.length;
+          hojasLimpiadas++;
+          Logger.log('✓ ' + nombreHoja + ': ' + filasAEliminar.length + ' filas eliminadas');
+        }
+      } catch (errorHoja) {
+        Logger.log('⚠️ Error limpiando ' + nombreHoja + ': ' + errorHoja.toString());
       }
-    } catch (e) {
-      Logger.log('  ✗ Error en ' + nombreHoja + ': ' + e.toString());
     }
   }
   
   Logger.log('=== LIMPIEZA COMPLETADA ===');
-  Logger.log('Total de filas eliminadas: ' + totalFilasEliminadas);
+  Logger.log('Total filas eliminadas: ' + totalFilasEliminadas);
   Logger.log('Hojas limpiadas: ' + hojasLimpiadas);
   
   return {
@@ -637,57 +683,16 @@ function eliminarFilasEnBlancoTodasLasHojas() {
   };
 }
 
-/**
- * Elimina filas completamente vacías de una hoja específica
- */
-function eliminarFilasEnBlancoHoja(hoja) {
-  var ultimaFila = hoja.getLastRow();
-  var ultimaColumna = hoja.getLastColumn();
-  
-  // Si la hoja está vacía o solo tiene encabezados
-  if (ultimaFila <= 1 || ultimaColumna === 0) {
-    return 0;
-  }
-  
-  var datos = hoja.getRange(2, 1, ultimaFila - 1, ultimaColumna).getValues();
-  var filasAEliminar = [];
-  
-  // Identificar filas completamente vacías
-  for (var i = 0; i < datos.length; i++) {
-    var filaVacia = true;
-    for (var j = 0; j < datos[i].length; j++) {
-      if (datos[i][j] !== '' && datos[i][j] !== null && datos[i][j] !== undefined) {
-        var valorStr = datos[i][j].toString().trim();
-        if (valorStr !== '') {
-          filaVacia = false;
-          break;
-        }
-      }
-    }
-    if (filaVacia) {
-      filasAEliminar.push(i + 2); // +2 porque: +1 por índice base-1, +1 por encabezado
-    }
-  }
-  
-  // Eliminar filas de abajo hacia arriba para no afectar índices
-  if (filasAEliminar.length > 0) {
-    for (var k = filasAEliminar.length - 1; k >= 0; k--) {
-      hoja.deleteRow(filasAEliminar[k]);
-    }
-  }
-  
-  return filasAEliminar.length;
-}
-
-/**
- * Función de menú para ejecutar limpieza manual
- */
 function limpiarFilasEnBlancoManual() {
   var ui = SpreadsheetApp.getUi();
   var respuesta = ui.alert(
     '🧹 Limpiar Filas en Blanco',
     '¿Deseas eliminar todas las filas completamente vacías de las hojas de ejecutivos?\n\n' +
-    'Esta acción no afectará las hojas del sistema (BBDD_REPORTE, RESUMEN, etc.)',
+    'Esta acción:\n' +
+    '✓ Eliminará filas totalmente vacías\n' +
+    '✓ Mantendrá todas las filas con datos\n' +
+    '✓ No afectará BBDD_REPORTE ni hojas del sistema\n\n' +
+    '¿Continuar?',
     ui.ButtonSet.YES_NO
   );
   
