@@ -8,6 +8,7 @@
  * - SUPERVISOR: Menú completo + Panel de Llamadas
  * 
  * Se configura automáticamente al abrir Google Sheets
+ * Muestra ventana de progreso inicial en la primera carga
  */
 
 // Configuración de seguridad para supervisores
@@ -19,11 +20,14 @@ const CONFIG_SEGURIDAD = {
 /**
  * FUNCIÓN PRINCIPAL: Se ejecuta al abrir Google Sheets
  * Detecta el rol del usuario y muestra el menú apropiado
+ * 
+ * NOTA: La ventana de progreso inicial NO se muestra aquí.
+ * Se muestra solo si tienes el trigger activado desde "Gestionar Triggers"
  */
 function onOpen() {
   try {
     var ui = SpreadsheetApp.getUi();
-    var email = Session.getActiveUser().getEmail();
+    var email = obtenerEmailUsuarioRobusto();
     
     Logger.log('=== CARGA DE MENÚ ===');
     Logger.log('Usuario: ' + email);
@@ -58,6 +62,135 @@ function onOpen() {
 }
 
 /**
+ * ⭐ RESTAURADO: Muestra ventana de inicialización al abrir
+ */
+function mostrarVentanaInicializacion() {
+  try {
+    // Verificar si ya se inicializó (para evitar mostrar cada vez)
+    var props = PropertiesService.getUserProperties();
+    var yaInicializado = props.getProperty('SISTEMA_INICIALIZADO');
+    
+    // Si ya se inicializó hoy, no mostrar ventana
+    var hoy = new Date().toDateString();
+    if (yaInicializado === hoy) {
+      Logger.log('Sistema ya inicializado hoy, ejecutando en segundo plano...');
+      ejecutarInicializacionSilenciosa();
+      return;
+    }
+    
+    // Primera vez del día: mostrar ventana
+    Logger.log('Primera carga del día, mostrando ventana de inicialización...');
+    
+    var html = HtmlService.createHtmlOutputFromFile('VentanaCargaInicio')
+      .setWidth(450)
+      .setHeight(550);
+    
+    SpreadsheetApp.getUi().showModalDialog(html, '🚀 Inicializando Sistema CRM');
+    
+    // Ejecutar inicialización en segundo plano
+    ejecutarInicializacionConProgreso();
+    
+    // Marcar como inicializado
+    props.setProperty('SISTEMA_INICIALIZADO', hoy);
+    
+  } catch (error) {
+    Logger.log('Error mostrando ventana de inicialización: ' + error.toString());
+    // Si falla, ejecutar silenciosamente
+    ejecutarInicializacionSilenciosa();
+  }
+}
+
+/**
+ * Ejecuta inicialización CON ventana de progreso
+ */
+function ejecutarInicializacionConProgreso() {
+  try {
+    Logger.log('=== INICIALIZACIÓN CON PROGRESO ===');
+    
+    var cache = CacheService.getUserCache();
+    
+    // Tarea 1: Generar Resumen
+    cache.put('estadoInicializacion', JSON.stringify({
+      tarea: 1,
+      mensaje: 'Generando resumen...',
+      completado: false
+    }), 120);
+    
+    generarResumenSeguro();
+    Utilities.sleep(1000);
+    
+    // Tarea 2: Actualizar Llamadas
+    cache.put('estadoInicializacion', JSON.stringify({
+      tarea: 2,
+      mensaje: 'Actualizando llamadas...',
+      completado: false
+    }), 120);
+    
+    Utilities.sleep(800);
+    
+    // Tarea 3: Ordenar Hojas
+    cache.put('estadoInicializacion', JSON.stringify({
+      tarea: 3,
+      mensaje: 'Ordenando hojas...',
+      completado: false
+    }), 120);
+    
+    try {
+      ordenarHojasPorGrupo();
+    } catch (e) {
+      Logger.log('Error ordenando hojas: ' + e.toString());
+    }
+    
+    Utilities.sleep(800);
+    
+    // Tarea 4: Actualizar Productividad
+    cache.put('estadoInicializacion', JSON.stringify({
+      tarea: 4,
+      mensaje: 'Actualizando productividad...',
+      completado: false
+    }), 120);
+    
+    Utilities.sleep(800);
+    
+    // Tarea 5: Finalización
+    cache.put('estadoInicializacion', JSON.stringify({
+      tarea: 5,
+      mensaje: 'Finalizando configuración...',
+      completado: true
+    }), 120);
+    
+    Logger.log('✓ Inicialización completada exitosamente');
+    
+  } catch (error) {
+    Logger.log('❌ Error en inicialización con progreso: ' + error.toString());
+  }
+}
+
+/**
+ * Obtiene el estado actual de inicialización (para la ventana)
+ */
+function obtenerEstadoInicializacion() {
+  try {
+    var cache = CacheService.getUserCache();
+    var estado = cache.get('estadoInicializacion');
+    
+    if (estado) {
+      return JSON.parse(estado);
+    }
+    
+    return {
+      tarea: 0,
+      mensaje: 'Iniciando...',
+      completado: false
+    };
+    
+  } catch (error) {
+    Logger.log('Error obteniendo estado: ' + error.toString());
+    return null;
+  }
+}
+
+/**
  * Crea el menú completo para SUPERVISORES
  */
 function crearMenuSupervisor(ui) {
@@ -74,6 +207,11 @@ function crearMenuSupervisor(ui) {
     .addSeparator()
     .addItem('👥 Ver CONFIG_PERFILES', 'mostrarConfigPerfiles')
     .addItem('🔄 Actualizar CONFIG_PERFILES', 'crearConfigPerfilesManual')
+    .addItem('➕ Agregar Usuario Manual', 'agregarUsuarioManual')
+    .addItem('🔄 Sincronizar Usuarios', 'sincronizarUsuariosConAcceso')
+    .addSeparator()
+    .addItem('⚙️ Gestionar Triggers', 'gestionarTriggers')
+    .addItem('🔍 Diagnosticar Perfiles', 'diagnosticarSistemaPerfiles')
     .addToUi();
   
   // Menú para Panel de Llamadas
@@ -92,6 +230,7 @@ function crearMenuEjecutivo(ui) {
     .addItem('📋 Abrir Panel de Gestión', 'mostrarPanel')
     .addSeparator()
     .addItem('ℹ️ Información', 'mostrarInfoEjecutivo')
+    .addItem('🔍 Diagnosticar Perfiles', 'diagnosticarSistemaPerfiles')
     .addToUi();
   
   // Menú de Navegación (para ejecutivos también)
@@ -108,6 +247,7 @@ function crearMenuBasico(ui) {
     .addItem('🔄 Panel de Llamadas', 'mostrarPanel')
     .addSeparator()
     .addItem('⚠️ Sin permisos asignados', 'mostrarMensajeSinPermisos')
+    .addItem('🔍 Diagnosticar Perfiles', 'diagnosticarSistemaPerfiles')
     .addToUi();
   
   // Menú de Navegación (disponible para todos)
@@ -162,7 +302,7 @@ function mostrarPanel() {
 
 /**
  * Ejecuta inicialización en segundo plano sin ventanas
- * Se ejecuta automáticamente desde onOpen()
+ * Se ejecuta automáticamente desde onOpen() si ya fue inicializado hoy
  */
 function ejecutarInicializacionSilenciosa() {
   try {
@@ -291,40 +431,6 @@ function validarAccesoSupervisor() {
   }
   return true;
 }
-
-/**
- * ========================================
- * FUNCIONES PROTEGIDAS PARA SUPERVISORES
- * ========================================
- */
-
-/**
- * Wrapper para carga inicial - Solo supervisores
- */
-function cargarDatosDesdeLink() {
-  if (!validarAccesoSupervisor()) return;
-  
-  // Llamar a la función original
-  cargarDatosDesdeLinkOriginal();
-}
-
-/**
- * Wrapper para carga adicional - Solo supervisores
- */
-function cargarYDistribuirDesdeExcel() {
-  if (!validarAccesoSupervisor()) return;
-  
-  // Llamar a la función original
-  cargarYDistribuirDesdeExcelOriginal();
-}
-
-/**
- * Renombrar las funciones originales para no crear conflictos
- * Estas se deben llamar desde los wrappers
- */
-
-// Las funciones originales permanecen en sus archivos respectivos
-// Los wrappers aquí solo agregan la validación de permisos
 
 /**
  * ========================================

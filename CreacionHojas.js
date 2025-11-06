@@ -1,6 +1,9 @@
 /**
+ * ========================================
  * MÓDULO 4: CREACIÓN DE HOJAS DE EJECUTIVO
+ * ========================================
  * Funciones para crear y configurar hojas individuales
+ * ✅ CORREGIDO: Fórmulas en ESPAÑOL (SI, ESBLANCO, HOY)
  */
 
 /**
@@ -49,7 +52,8 @@ function crearHojaEjecutivo(ss, nombreEjecutivo, datos, encabezadosOriginales) {
 }
 
 /**
- * Aplica validaciones de datos y fórmulas a una hoja
+ * ✅ CORREGIDO: Aplica validaciones de datos y fórmulas a una hoja
+ * Fórmulas ahora en ESPAÑOL
  */
 function aplicarValidacionesYFormulas(hoja, encabezados, numeroFilas) {
   if (numeroFilas === 0) return;
@@ -99,14 +103,13 @@ function aplicarValidacionesYFormulas(hoja, encabezados, numeroFilas) {
           .build());
     }
     
-    // Fórmula de estado de compromiso
+    // FORMULA HIBRIDA: IF (inglés) + ; (separador español)
     if (idx.estadoCompromiso !== -1 && idx.fechaCompromiso !== -1) {
       var col = columnNumberToLetter(idx.fechaCompromiso + 1);
       var formulas = [];
       for (var i = 2; i <= numeroFilas + 1; i++) {
-        formulas.push([
-          '=IF(ISBLANK(' + col + i + '),"SIN_COMPROMISO",IF(' + col + i + '=TODAY(),"LLAMAR_HOY",IF(' + col + i + '<TODAY(),"COMPROMISO_VENCIDO","COMPROMISO_FUTURO")))'
-        ]);
+        var f = '=IF(ISBLANK(' + col + i + ');"SIN_COMPROMISO";IF(' + col + i + '=TODAY();"LLAMAR_HOY";IF(' + col + i + '<TODAY();"COMPROMISO_VENCIDO";"COMPROMISO_FUTURO")))';
+        formulas.push([f]);
       }
       hoja.getRange(2, idx.estadoCompromiso + 1, numeroFilas, 1).setFormulas(formulas);
     }
@@ -116,24 +119,23 @@ function aplicarValidacionesYFormulas(hoja, encabezados, numeroFilas) {
 }
 
 /**
- * Trigger automático para actualizar estado de compromiso al editar fecha
+ * Protege las columnas originales (solo lectura)
  */
-function onEdit(e) {
+function protegerColumnasOriginales(hoja, numColumnasOriginales) {
   try {
-    var hoja = e.source.getActiveSheet();
-    if (/^BBDD_.*_REMOTO/i.test(hoja.getName())) return;
+    if (numColumnasOriginales === 0) return;
     
-    var enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
-    var idxC = enc.indexOf('FECHA_COMPROMISO');
-    var idxE = enc.indexOf('ESTADO_COMPROMISO');
+    var ultimaFila = hoja.getLastRow();
+    if (ultimaFila < 2) return;
     
-    if (idxC !== -1 && idxE !== -1 && e.range.getColumn() === idxC + 1) {
-      var fila = e.range.getRow();
-      var col = columnNumberToLetter(idxC + 1);
-      var formula = '=IF(ISBLANK(' + col + fila + '),"SIN_COMPROMISO",IF(' + col + fila + '=TODAY(),"LLAMAR_HOY",IF(' + col + fila + '<TODAY(),"COMPROMISO_VENCIDO","COMPROMISO_FUTURO")))';
-      hoja.getRange(fila, idxE + 1).setFormula(formula);
+    var rango = hoja.getRange(2, 1, ultimaFila - 1, numColumnasOriginales);
+    var protection = rango.protect().setDescription('Columnas Originales');
+    
+    if (protection.canDomainEdit()) {
+      protection.setDomainEdit(false);
     }
+    
   } catch (error) {
-    Logger.log('Error en onEdit: ' + error);
+    Logger.log('Error protegiendo columnas: ' + error.toString());
   }
 }

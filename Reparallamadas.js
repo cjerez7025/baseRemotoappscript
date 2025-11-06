@@ -387,6 +387,7 @@ function crearGraficoProgresoLlamadas() {
     try {
       var rangoGrafico = llamadasSheet.getRange(filaEncabezadosMetricas, 1, numFilasDatos + 1, 5);
       
+      // ⭐ CORRECCIÓN APLICADA: Removido 'bottom: 120' de chartArea
       var chart = llamadasSheet.newChart()
         .setChartType(Charts.ChartType.COLUMN)
         .addRange(rangoGrafico)
@@ -400,7 +401,7 @@ function crearGraficoProgresoLlamadas() {
         .setOption('legend', {position: 'top', textStyle: {fontSize: 12, bold: true}})
         .setOption('hAxis', {title: 'EJECUTIVO', textStyle: {fontSize: 9}, slantedText: true, slantedTextAngle: 45})
         .setOption('vAxis', {title: 'Cantidad', minValue: 0, textStyle: {fontSize: 11}})
-        .setOption('chartArea', {width: '70%', height: '55%', left: 100, top: 70, bottom: 120})
+        .setOption('chartArea', {width: '70%', height: '60%', left: 100, top: 70})
         .setOption('bar', {groupWidth: '60%'})
         .setOption('titleTextStyle', {fontSize: 16, bold: true})
         .build();
