@@ -310,11 +310,17 @@ function agregarUsuarioManual() {
     SpreadsheetApp.getUi().alert('❌ Error', error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
 }
-
 /**
- * CORRECCIÓN: Sincronizar emails de usuarios con acceso
- * Lee los permisos del archivo y actualiza CONFIG_PERFILES
+ * ========================================
+ * SINCRONIZAR USUARIOS - VERSIÓN MEJORADA
+ * ========================================
+ * Detecta:
+ * 1. Usuarios con acceso al archivo (editores)
+ * 2. Hojas de ejecutivos creadas en el sistema
+ * 
+ * Los agrega automáticamente a CONFIG_PERFILES
  */
+
 function sincronizarUsuariosConAcceso() {
   try {
     var ui = SpreadsheetApp.getUi();
@@ -322,8 +328,11 @@ function sincronizarUsuariosConAcceso() {
     
     var respuesta = ui.alert(
       '🔄 Sincronizar Usuarios',
-      '¿Deseas sincronizar los usuarios que tienen acceso al archivo con CONFIG_PERFILES?\n\n' +
-      'Esto detectará automáticamente a todos los usuarios con permisos de edición.',
+      '¿Deseas sincronizar usuarios?\n\n' +
+      'Esto detectará:\n' +
+      '• Usuarios con acceso al archivo\n' +
+      '• Hojas de ejecutivos creadas\n\n' +
+      'Y los agregará a CONFIG_PERFILES',
       ui.ButtonSet.YES_NO
     );
     
@@ -335,59 +344,160 @@ function sincronizarUsuariosConAcceso() {
       return;
     }
     
-    // Obtener usuarios con acceso usando DriveApp
+    Logger.log('=== SINCRONIZACIÓN DE USUARIOS ===');
+    
+    var usuariosNuevos = [];
+    var ahora = new Date();
+    
+    // ═══════════════════════════════════════
+    // PARTE 1: DETECTAR USUARIOS CON ACCESO
+    // ═══════════════════════════════════════
+    
+    Logger.log('');
+    Logger.log('PARTE 1: Detectando usuarios con acceso al archivo...');
+    
     var file = DriveApp.getFileById(ss.getId());
-    var editors = file.getEditors();
-    var viewers = file.getViewers();
+    var editores = file.getEditors();
     
-    Logger.log('Editores detectados: ' + editors.length);
-    Logger.log('Visualizadores: ' + viewers.length);
+    Logger.log('Total editores con acceso: ' + editores.length);
     
-    var emailsNuevos = [];
-    var nombresNuevos = [];
-    
-    // Procesar editores
-    for (var i = 0; i < editors.length; i++) {
-      var email = editors[i].getEmail();
-      var nombre = editors[i].getName() || email.split('@')[0];
+    for (var i = 0; i < editores.length; i++) {
+      var editor = editores[i];
+      var email = editor.getEmail();
+      var nombre = editor.getName() || email.split('@')[0];
       
-      Logger.log('Editor ' + (i+1) + ': ' + nombre + ' (' + email + ')');
+      Logger.log((i + 1) + '. Editor: ' + nombre + ' (' + email + ')');
       
       // Verificar si ya existe en CONFIG_PERFILES
-      var existe = false;
-      var ultimaFila = configSheet.getLastRow();
-      
-      if (ultimaFila > 1) {
-        var datosExistentes = configSheet.getRange(2, 2, ultimaFila - 1, 1).getValues();
-        for (var j = 0; j < datosExistentes.length; j++) {
-          if (datosExistentes[j][0].toString().toLowerCase() === email.toLowerCase()) {
-            existe = true;
-            break;
-          }
-        }
-      }
-      
-      if (!existe) {
-        emailsNuevos.push(email);
-        nombresNuevos.push(nombre);
+      if (!existeEnConfigPerfiles(configSheet, email)) {
+        usuariosNuevos.push({
+          nombre: nombre,
+          email: email,
+          rol: 'EJECUTIVO',
+          hoja: '',
+          origen: 'ACCESO AL ARCHIVO'
+        });
+        Logger.log('   → Será agregado como EJECUTIVO');
+      } else {
+        Logger.log('   → Ya existe en CONFIG_PERFILES');
       }
     }
     
-    if (emailsNuevos.length === 0) {
+    // ═══════════════════════════════════════
+    // PARTE 2: DETECTAR HOJAS DE EJECUTIVOS
+    // ═══════════════════════════════════════
+    
+    Logger.log('');
+    Logger.log('PARTE 2: Detectando hojas de ejecutivos...');
+    
+    var todasLasHojas = ss.getSheets();
+    var hojasExcluidas = [
+      'BBDD_REPORTE', 'RESUMEN', 'PRODUCTIVIDAD', 'LLAMADAS',
+      'CONFIG_PERFILES', 'Sheet1', 'Hoja 1', 'Hoja1',
+      'CONFIGURACION', 'DASHBOARD', 'TOTALES', 'GRAFICOS'
+    ];
+    
+    var hojasEjecutivos = [];
+    
+    for (var j = 0; j < todasLasHojas.length; j++) {
+      var hoja = todasLasHojas[j];
+      var nombreHoja = hoja.getName();
+      
+      // Saltar hojas especiales
+      if (hojasExcluidas.indexOf(nombreHoja) !== -1) continue;
+      if (/^BBDD_.*_REMOTO/i.test(nombreHoja)) continue;
+      
+      // Si la hoja tiene datos, probablemente es de un ejecutivo
+      if (hoja.getLastRow() > 1) {
+        hojasEjecutivos.push(nombreHoja);
+        Logger.log((hojasEjecutivos.length) + '. Hoja ejecutivo: ' + nombreHoja);
+      }
+    }
+    
+    Logger.log('Total hojas de ejecutivos detectadas: ' + hojasEjecutivos.length);
+    
+    // Procesar cada hoja de ejecutivo
+    Logger.log('');
+    Logger.log('Procesando hojas de ejecutivos...');
+    
+    for (var k = 0; k < hojasEjecutivos.length; k++) {
+      var nombreHoja = hojasEjecutivos[k];
+      
+      // Verificar si ya hay un usuario con esta hoja asignada
+      var tieneUsuarioAsignado = verificarHojaAsignada(configSheet, nombreHoja);
+      
+      if (!tieneUsuarioAsignado) {
+        // Crear nombre basado en la hoja
+        var nombreEjecutivo = formatearNombreDesdeHoja(nombreHoja);
+        
+        // Verificar si ya existe un usuario con este nombre
+        var yaExisteNombre = existeNombreEnConfigPerfiles(configSheet, nombreEjecutivo);
+        
+        if (!yaExisteNombre) {
+          usuariosNuevos.push({
+            nombre: nombreEjecutivo,
+            email: '', // Sin email porque solo detectamos por hoja
+            rol: 'EJECUTIVO',
+            hoja: nombreHoja,
+            origen: 'HOJA CREADA'
+          });
+          Logger.log('   → ' + nombreEjecutivo + ' será agregado (hoja: ' + nombreHoja + ')');
+        } else {
+          // Usuario existe pero sin hoja asignada, actualizar
+          Logger.log('   → ' + nombreEjecutivo + ' existe, actualizando hoja asignada');
+          actualizarHojaAsignada(configSheet, nombreEjecutivo, nombreHoja);
+        }
+      } else {
+        Logger.log('   → ' + nombreHoja + ' ya tiene usuario asignado');
+      }
+    }
+    
+    // ═══════════════════════════════════════
+    // PARTE 3: MOSTRAR RESUMEN Y CONFIRMAR
+    // ═══════════════════════════════════════
+    
+    Logger.log('');
+    Logger.log('=== RESUMEN DE SINCRONIZACIÓN ===');
+    Logger.log('Total usuarios nuevos a agregar: ' + usuariosNuevos.length);
+    
+    if (usuariosNuevos.length === 0) {
       ui.alert(
         'ℹ️ Sin Cambios',
-        'Todos los usuarios con acceso ya están registrados en CONFIG_PERFILES',
+        'No se detectaron usuarios nuevos.\n\n' +
+        '• Usuarios con acceso: Ya están en CONFIG_PERFILES\n' +
+        '• Hojas de ejecutivos: Ya tienen usuarios asignados',
         ui.ButtonSet.OK
       );
       return;
     }
     
-    // Agregar usuarios nuevos
-    var mensaje = '🆕 SE DETECTARON ' + emailsNuevos.length + ' USUARIO(S) NUEVO(S):\n\n';
+    // Mostrar resumen
+    var mensaje = '🆕 SE DETECTARON ' + usuariosNuevos.length + ' USUARIO(S) NUEVO(S):\n\n';
     
-    for (var k = 0; k < emailsNuevos.length; k++) {
-      mensaje += (k+1) + '. ' + nombresNuevos[k] + '\n';
-      mensaje += '   📧 ' + emailsNuevos[k] + '\n\n';
+    var desdeAcceso = usuariosNuevos.filter(function(u) { return u.origen === 'ACCESO AL ARCHIVO'; }).length;
+    var desdeHojas = usuariosNuevos.filter(function(u) { return u.origen === 'HOJA CREADA'; }).length;
+    
+    mensaje += '📊 ORIGEN:\n';
+    mensaje += '• Desde acceso al archivo: ' + desdeAcceso + '\n';
+    mensaje += '• Desde hojas creadas: ' + desdeHojas + '\n\n';
+    mensaje += '━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // Mostrar primeros 10 usuarios
+    var limite = Math.min(10, usuariosNuevos.length);
+    for (var m = 0; m < limite; m++) {
+      var usuario = usuariosNuevos[m];
+      mensaje += (m + 1) + '. ' + usuario.nombre + '\n';
+      if (usuario.email) {
+        mensaje += '   📧 ' + usuario.email + '\n';
+      }
+      if (usuario.hoja) {
+        mensaje += '   📊 Hoja: ' + usuario.hoja + '\n';
+      }
+      mensaje += '   🏷️ Origen: ' + usuario.origen + '\n\n';
+    }
+    
+    if (usuariosNuevos.length > 10) {
+      mensaje += '... y ' + (usuariosNuevos.length - 10) + ' más.\n\n';
     }
     
     mensaje += '¿Deseas agregarlos como EJECUTIVOS?';
@@ -396,28 +506,49 @@ function sincronizarUsuariosConAcceso() {
     
     if (confirmar !== ui.Button.YES) return;
     
-    // Agregar a CONFIG_PERFILES
-    var ultimaFila = configSheet.getLastRow();
-    var ahora = new Date();
+    // ═══════════════════════════════════════
+    // PARTE 4: AGREGAR USUARIOS A CONFIG_PERFILES
+    // ═══════════════════════════════════════
     
-    for (var m = 0; m < emailsNuevos.length; m++) {
-      var fila = ultimaFila + m + 1;
+    Logger.log('');
+    Logger.log('Agregando usuarios a CONFIG_PERFILES...');
+    
+    var ultimaFila = configSheet.getLastRow();
+    
+    for (var n = 0; n < usuariosNuevos.length; n++) {
+      var usuario = usuariosNuevos[n];
+      var fila = ultimaFila + n + 1;
       
-      configSheet.getRange(fila, 1).setValue(nombresNuevos[m]);
-      configSheet.getRange(fila, 2).setValue(emailsNuevos[m]);
-      configSheet.getRange(fila, 3).setValue('EJECUTIVO');
-      configSheet.getRange(fila, 4).setValue(''); // Sin hoja asignada por ahora
+      configSheet.getRange(fila, 1).setValue(usuario.nombre);
+      configSheet.getRange(fila, 2).setValue(usuario.email);
+      configSheet.getRange(fila, 3).setValue(usuario.rol);
+      configSheet.getRange(fila, 4).setValue(usuario.hoja);
       configSheet.getRange(fila, 5).setValue(ahora);
       configSheet.getRange(fila, 6).setValue(ahora);
       
       var color = (fila % 2 === 0) ? '#F5F5F5' : '#FFFFFF';
       configSheet.getRange(fila, 1, 1, 6).setBackground(color);
+      
+      Logger.log('✓ Usuario agregado: ' + usuario.nombre);
     }
+    
+    // ═══════════════════════════════════════
+    // PARTE 5: MOSTRAR RESULTADO
+    // ═══════════════════════════════════════
+    
+    Logger.log('');
+    Logger.log('✓ Sincronización completada exitosamente');
     
     ui.alert(
       '✅ Sincronización Completada',
-      emailsNuevos.length + ' usuario(s) agregado(s) exitosamente.\n\n' +
-      'Ahora necesitas asignarles las hojas correspondientes.',
+      usuariosNuevos.length + ' usuario(s) agregado(s) exitosamente.\n\n' +
+      '📊 RESUMEN:\n' +
+      '• Desde acceso: ' + desdeAcceso + '\n' +
+      '• Desde hojas: ' + desdeHojas + '\n\n' +
+      '💡 SIGUIENTE PASO:\n' +
+      '• Revisa CONFIG_PERFILES\n' +
+      '• Asigna emails a usuarios sin email\n' +
+      '• Asigna hojas a usuarios sin hoja',
       ui.ButtonSet.OK
     );
     
@@ -431,4 +562,106 @@ function sincronizarUsuariosConAcceso() {
     Logger.log('ERROR sincronizando usuarios: ' + error.toString());
     SpreadsheetApp.getUi().alert('❌ Error', error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
+}
+
+/**
+ * ═══════════════════════════════════════
+ * FUNCIONES AUXILIARES
+ * ═══════════════════════════════════════
+ */
+
+/**
+ * Verifica si un email ya existe en CONFIG_PERFILES
+ */
+function existeEnConfigPerfiles(configSheet, email) {
+  if (!email) return false;
+  
+  var ultimaFila = configSheet.getLastRow();
+  if (ultimaFila < 2) return false;
+  
+  var emails = configSheet.getRange(2, 2, ultimaFila - 1, 1).getValues();
+  
+  for (var i = 0; i < emails.length; i++) {
+    if (emails[i][0] && emails[i][0].toString().toLowerCase() === email.toLowerCase()) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Verifica si un nombre ya existe en CONFIG_PERFILES
+ */
+function existeNombreEnConfigPerfiles(configSheet, nombre) {
+  if (!nombre) return false;
+  
+  var ultimaFila = configSheet.getLastRow();
+  if (ultimaFila < 2) return false;
+  
+  var nombres = configSheet.getRange(2, 1, ultimaFila - 1, 1).getValues();
+  
+  for (var i = 0; i < nombres.length; i++) {
+    if (nombres[i][0] && nombres[i][0].toString().toUpperCase() === nombre.toUpperCase()) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Verifica si una hoja ya tiene un usuario asignado
+ */
+function verificarHojaAsignada(configSheet, nombreHoja) {
+  var ultimaFila = configSheet.getLastRow();
+  if (ultimaFila < 2) return false;
+  
+  var hojas = configSheet.getRange(2, 4, ultimaFila - 1, 1).getValues();
+  
+  for (var i = 0; i < hojas.length; i++) {
+    if (hojas[i][0] && hojas[i][0].toString() === nombreHoja) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Actualiza la hoja asignada de un usuario existente
+ */
+function actualizarHojaAsignada(configSheet, nombreUsuario, nombreHoja) {
+  var ultimaFila = configSheet.getLastRow();
+  if (ultimaFila < 2) return;
+  
+  var datos = configSheet.getRange(2, 1, ultimaFila - 1, 4).getValues();
+  
+  for (var i = 0; i < datos.length; i++) {
+    var nombre = datos[i][0];
+    
+    if (nombre && nombre.toString().toUpperCase() === nombreUsuario.toUpperCase()) {
+      var fila = i + 2;
+      configSheet.getRange(fila, 4).setValue(nombreHoja);
+      configSheet.getRange(fila, 6).setValue(new Date()); // Actualizar fecha
+      Logger.log('✓ Hoja actualizada para ' + nombreUsuario + ': ' + nombreHoja);
+      return;
+    }
+  }
+}
+
+/**
+ * Formatea el nombre de la hoja para crear un nombre de usuario legible
+ * Ejemplo: "ANA_VILLANUEVA" → "Ana Villanueva"
+ */
+function formatearNombreDesdeHoja(nombreHoja) {
+  // Reemplazar guiones bajos por espacios
+  var nombre = nombreHoja.replace(/_/g, ' ');
+  
+  // Capitalizar cada palabra
+  nombre = nombre.toLowerCase().replace(/\b\w/g, function(letra) {
+    return letra.toUpperCase();
+  });
+  
+  return nombre;
 }
